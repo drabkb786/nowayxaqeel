@@ -272,7 +272,9 @@ function SingleChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { onMessagesChange(messages); }, [messages, onMessagesChange]);
+  const onMsgRef = useRef(onMessagesChange);
+  useEffect(() => { onMsgRef.current = onMessagesChange; });
+  useEffect(() => { onMsgRef.current(messages); }, [messages]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
 
