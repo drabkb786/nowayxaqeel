@@ -37,9 +37,9 @@ import {
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
-      { title: "Noway Chat — Multi-Model AI Chat (GPT & Gemini)" },
+      { title: "NOWAYxAQEEL GPT — Multi-Model AI Chat (GPT & Gemini)" },
       { name: "description", content: "Chat with GPT-5.5, GPT-5, Gemini 2.5 Pro and Flash in one clean interface. Streaming responses, custom system prompts, compare mode, and cloud-saved history." },
-      { property: "og:title", content: "Noway Chat" },
+      { property: "og:title", content: "NOWAYxAQEEL GPT" },
       { property: "og:description", content: "Multi-model AI chat: GPT and Gemini in one place." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
