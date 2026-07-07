@@ -1,5 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage } from "pdf-lib";
+import type { PDFDocument, PDFFont, PDFImage } from "pdf-lib";
+
+// Lazy-load pdf-lib inside the handler.
+// Importing it at module scope causes the whole SSR entry to crash on
+// Cloudflare Workers ("Cannot destructure property '__extends' of tslib.default")
+// because the bundler emits a broken tslib default-interop shim.
+type PdfLib = typeof import("pdf-lib");
+let pdfLibPromise: Promise<PdfLib> | null = null;
+const loadPdfLib = () => (pdfLibPromise ??= import("pdf-lib"));
 
 type Body = { prompt?: string; model?: string; font?: string };
 
