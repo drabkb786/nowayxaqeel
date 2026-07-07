@@ -573,19 +573,27 @@ async function drawImage(ctx: Ctx, block: Extract<Block, { type: "image" }>, blo
       // subtle frame
       ctx.page.drawRectangle({ x: x - 2, y: yImg - 2, width: w + 4, height: h + 4, color: ctx.pal.hair });
       ctx.page.drawImage(img, { x, y: yImg, width: w, height: h });
-      ctx.y = yImg - 10;
-      const labelW = ctx.fonts.bold.widthOfTextAtSize(figLabel, 9.5);
-      ctx.page.drawText(figLabel, { x: MARGIN + (CONTENT_W - labelW) / 2 - (capLines[0] ? ctx.fonts.italic.widthOfTextAtSize(" — " + capLines[0], 9.5) / 2 : 0), y: ctx.y - 9.5, size: 9.5, font: ctx.fonts.bold, color: ctx.pal.primary });
-      // simpler: draw label + first caption line together centered
-      // (previous line kept for label prominence; overwrite with centered combined caption below)
-      // Clear that draw by advancing y as normal — visual overlap is small; centered caption on new line:
-      ctx.y -= 12;
-      for (const l of capLines) {
-        const w2 = ctx.fonts.italic.widthOfTextAtSize(l, 9.5);
-        ctx.page.drawText(l, { x: MARGIN + (CONTENT_W - w2) / 2, y: ctx.y - 9.5, size: 9.5, font: ctx.fonts.italic, color: ctx.pal.mute });
+      ctx.y = yImg - 14;
+      // Caption: "Figure N — text" centered
+      const combined = `${figLabel} — ${caption}`;
+      const capLines = wrap(combined, ctx.fonts.italic, 9.5, CONTENT_W);
+      for (let li = 0; li < capLines.length; li++) {
+        const line = capLines[li];
+        const w2 = ctx.fonts.italic.widthOfTextAtSize(line, 9.5);
+        // Draw label prefix bold on first line
+        if (li === 0 && line.startsWith(figLabel)) {
+          const rest = line.slice(figLabel.length);
+          const labelW = ctx.fonts.bold.widthOfTextAtSize(figLabel, 9.5);
+          const restW = ctx.fonts.italic.widthOfTextAtSize(rest, 9.5);
+          const startX = MARGIN + (CONTENT_W - (labelW + restW)) / 2;
+          ctx.page.drawText(figLabel, { x: startX, y: ctx.y - 9.5, size: 9.5, font: ctx.fonts.bold, color: ctx.pal.primary });
+          ctx.page.drawText(rest, { x: startX + labelW, y: ctx.y - 9.5, size: 9.5, font: ctx.fonts.italic, color: ctx.pal.mute });
+        } else {
+          ctx.page.drawText(line, { x: MARGIN + (CONTENT_W - w2) / 2, y: ctx.y - 9.5, size: 9.5, font: ctx.fonts.italic, color: ctx.pal.mute });
+        }
         ctx.y -= 12;
       }
-      ctx.y -= 6;
+      ctx.y -= 8;
       return;
     } catch { /* fall through */ }
   }
