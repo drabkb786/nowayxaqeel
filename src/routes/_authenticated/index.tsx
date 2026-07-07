@@ -268,9 +268,9 @@ function ChatPage() {
             <Menu className="w-4 h-4" />
           </button>
           <div className={`flex items-center gap-2 min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center font-bold text-black text-sm">N</div>
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center font-black text-black text-[10px] tracking-tight">NxA</div>
             <div className="min-w-0">
-              <div className="font-semibold text-sm truncate">Noway Chat</div>
+              <div className="font-semibold text-sm truncate">NOWAYxAQEEL GPT</div>
               <div className="text-[10px] text-sidebar-foreground/40">GPT · Gemini</div>
             </div>
           </div>
