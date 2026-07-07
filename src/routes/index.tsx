@@ -290,10 +290,8 @@ function SingleChat({
   useEffect(() => { onMsgRef.current(messages); }, [messages]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy, pending]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
-  // Revoke blob URL when replaced/unmounted
-  useEffect(() => {
-    return () => { if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url); };
-  }, [pending]);
+  // Note: blob URLs used by confirmed messages must NOT be auto-revoked;
+  // the browser reclaims them on page unload. We revoke only on discard/regen.
 
   const busy = status === "submitted" || status === "streaming" || imgBusy;
 
