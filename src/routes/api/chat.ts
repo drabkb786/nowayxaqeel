@@ -56,7 +56,11 @@ function formatTimestamp(seconds: number): string {
 
 async function fetchYouTubeTranscript(videoId: string) {
   try {
-    const items = await YoutubeTranscript.fetchTranscript(videoId);
+    const { YoutubeTranscript } = await import("youtube-transcript");
+    const items = (await YoutubeTranscript.fetchTranscript(videoId)) as Array<{
+      text?: string;
+      offset?: number;
+    }>;
     if (!items || items.length === 0) {
       return { ok: false as const, error: "No transcript items returned." };
     }
