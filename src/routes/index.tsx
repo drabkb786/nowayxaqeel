@@ -313,7 +313,7 @@ function SingleChat({
       const asstMsg: UIMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        parts: [{ type: "text", text: `![generated image](${dataUrl})` }],
+        parts: [{ type: "file", mediaType, url: dataUrl, filename: "generated.png" }],
       };
       setMessages((prev) => [...prev, asstMsg]);
     } catch (e) {
