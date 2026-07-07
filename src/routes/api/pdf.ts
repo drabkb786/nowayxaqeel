@@ -200,25 +200,23 @@ async function renderPdf(doc: Doc): Promise<Uint8Array> {
   };
 
   for (const block of doc.blocks) {
-    if (block.type === "h1") await drawHeading(block.text, 20, 12, 6);
-    else if (block.type === "h2") await drawHeading(block.text, 16, 10, 4);
-    else if (block.type === "h3") await drawHeading(block.text, 13, 8, 3);
-    else if (block.type === "p") await drawRuns(block.runs || [], 11, 0);
+    if (block.type === "h1") drawHeading(block.text, 20, 12, 6);
+    else if (block.type === "h2") drawHeading(block.text, 16, 10, 4);
+    else if (block.type === "h3") drawHeading(block.text, 13, 8, 3);
+    else if (block.type === "p") drawRuns(block.runs || [], 11, 0);
     else if (block.type === "ul") {
       for (const item of block.items || []) {
         ensureSpace(16);
-        const f = await fonts.regular;
-        page.drawText("•", { x: MARGIN, y: y - 11, size: 11, font: f, color: accent });
-        await drawRuns([{ text: item }], 11, 16);
+        page.drawText("•", { x: MARGIN, y: y - 11, size: 11, font: fonts.regular, color: accent });
+        drawRuns([{ text: item }], 11, 16);
       }
       y -= 4;
     } else if (block.type === "ol") {
       let i = 1;
       for (const item of block.items || []) {
         ensureSpace(16);
-        const f = await fonts.regular;
-        page.drawText(`${i}.`, { x: MARGIN, y: y - 11, size: 11, font: f, color: accent });
-        await drawRuns([{ text: item }], 11, 22);
+        page.drawText(`${i}.`, { x: MARGIN, y: y - 11, size: 11, font: fonts.regular, color: accent });
+        drawRuns([{ text: item }], 11, 22);
         i++;
       }
       y -= 4;
