@@ -121,10 +121,10 @@ export const Route = createFileRoute("/api/research")({
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "sonar-pro",
+              model: "sonar-deep-research",
               messages,
               temperature: 0.2,
-              max_tokens: 4000,
+              max_tokens: 8000,
               return_citations: true,
               search_context_size: "high",
             }),
