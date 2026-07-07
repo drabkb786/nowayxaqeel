@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { COUNTRIES } from "@/lib/countries";
 import { generateIdentity, type Identity } from "@/lib/generator";
 
@@ -42,8 +42,9 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 
 function Page() {
   const [countryCode, setCountryCode] = useState<string>("");
-  const [identity, setIdentity] = useState<Identity>(() => generateIdentity("US"));
+  const [identity, setIdentity] = useState<Identity | null>(null);
   const [search, setSearch] = useState("");
+  useEffect(() => { setIdentity(generateIdentity("US")); }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
