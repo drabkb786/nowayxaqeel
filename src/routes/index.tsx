@@ -281,26 +281,25 @@ function SingleChat({
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imgErr, setImgErr] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ prompt: string; url: string; mediaType: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const onMsgRef = useRef(onMessagesChange);
   useEffect(() => { onMsgRef.current = onMessagesChange; });
   useEffect(() => { onMsgRef.current(messages); }, [messages]);
-  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy, pending]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
+  // Note: blob URLs used by confirmed messages must NOT be auto-revoked;
+  // the browser reclaims them on page unload. We revoke only on discard/regen.
 
   const busy = status === "submitted" || status === "streaming" || imgBusy;
 
   const generateImage = async (prompt: string, imgModel: string = model) => {
-    const userMsg: UIMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      parts: [{ type: "text", text: prompt }],
-    };
-    setMessages([...messages, userMsg]);
     setImgBusy(true);
     setImgErr(null);
+    if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url);
+    setPending(null);
     try {
       const res = await fetch("/api/image", {
         method: "POST",
@@ -309,18 +308,45 @@ function SingleChat({
       });
       if (!res.ok) throw new Error(await res.text());
       const { b64_json, mediaType } = (await res.json()) as { b64_json: string; mediaType: string };
-      const dataUrl = `data:${mediaType};base64,${b64_json}`;
-      const asstMsg: UIMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        parts: [{ type: "file", mediaType, url: dataUrl, filename: "generated.png" }],
-      };
-      setMessages((prev) => [...prev, asstMsg]);
+      // Decode base64 → Blob so browser treats it as a real PNG (correct MIME, clean download)
+      const bin = atob(b64_json);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mediaType || "image/png" });
+      const url = URL.createObjectURL(blob);
+      setPending({ prompt, url, mediaType: mediaType || "image/png" });
     } catch (e) {
       setImgErr(e instanceof Error ? e.message : String(e));
     } finally {
       setImgBusy(false);
     }
+  };
+
+  const confirmPending = () => {
+    if (!pending) return;
+    const userMsg: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: pending.prompt }],
+    };
+    const asstMsg: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      parts: [{ type: "file", mediaType: pending.mediaType, url: pending.url, filename: "generated.png" }],
+    };
+    setMessages((prev) => [...prev, userMsg, asstMsg]);
+    setPending(null); // do NOT revoke — msg is now using this url
+  };
+
+  const discardPending = () => {
+    if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url);
+    setPending(null);
+  };
+
+  const regeneratePending = () => {
+    if (!pending) return;
+    const p = pending.prompt;
+    void generateImage(p, isImageModel(model) ? model : "google/gemini-3-pro-image");
   };
 
   const submit = (e: React.FormEvent) => {
@@ -381,8 +407,24 @@ function SingleChat({
               {error?.message ?? imgErr}
             </div>
           )}
+          {pending && (
+            <div className="rounded-2xl border border-[#a56bff]/40 bg-[#a56bff]/5 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] tracking-widest uppercase text-[#a56bff]">Preview — confirm karo</div>
+                <div className="text-[11px] text-white/50 truncate max-w-[60%]" title={pending.prompt}>{pending.prompt}</div>
+              </div>
+              <img src={pending.url} alt="preview" className="rounded-xl max-w-full max-h-[60vh] border border-white/10 mx-auto block" />
+              <div className="flex flex-wrap gap-2 justify-end">
+                <a href={pending.url} download="generated.png" className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80">⬇ Download</a>
+                <button type="button" onClick={regeneratePending} disabled={imgBusy} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80 disabled:opacity-40">↻ Regenerate</button>
+                <button type="button" onClick={discardPending} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-red-500/20 text-white/80">✕ Discard</button>
+                <button type="button" onClick={confirmPending} className="text-[11px] px-3 py-1.5 rounded-md bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black font-semibold">Send to chat ↑</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
 
       <form onSubmit={submit} className="border-t border-white/5 p-3">
         <div className="max-w-3xl mx-auto">
