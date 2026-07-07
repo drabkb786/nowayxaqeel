@@ -765,26 +765,28 @@ function SingleChat({
             >
               <Mic className="w-5 h-5" />
             </button>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
-              placeholder="Message Noway…"
-              rows={1}
-              className="flex-1 min-w-0 w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground max-h-48 py-2.5 px-2 leading-relaxed"
-            />
-            {!busy && (
-              <select
-                value={depth}
-                onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
-                title="Response depth"
-                className="hidden md:block text-xs bg-background/60 hover:bg-background border border-border rounded-full px-3 py-1.5 outline-none cursor-pointer text-foreground self-center shrink-0"
-              >
-                <option value="standard">Standard</option>
-                <option value="extended">Extended</option>
-              </select>
-            )}
+            <div className="flex flex-1 min-w-0 items-end gap-0">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
+                placeholder="Message Noway…"
+                rows={1}
+                className="flex-1 min-w-0 w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground max-h-48 py-2.5 px-2 leading-relaxed"
+              />
+              {!busy && (
+                <select
+                  value={depth}
+                  onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
+                  title="Response depth"
+                  className="hidden md:block text-xs bg-background/60 hover:bg-background border border-border rounded-full px-3 py-1.5 outline-none cursor-pointer text-foreground self-center shrink-0"
+                >
+                  <option value="standard">Standard</option>
+                  <option value="extended">Extended</option>
+                </select>
+              )}
+            </div>
             {busy ? (
               <button
                 type="button"
