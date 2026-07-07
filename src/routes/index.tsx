@@ -404,13 +404,24 @@ function SingleChat({
           {(status === "submitted" || imgBusy) && (
             <div className="text-xs text-white/40 animate-pulse">{imgBusy ? "🎨 Generating image…" : "Thinking…"}</div>
           )}
-          {(error || imgErr) && (
-            <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-              {error?.message ?? imgErr}
+          {pending && (
+            <div className="rounded-2xl border border-[#a56bff]/40 bg-[#a56bff]/5 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] tracking-widest uppercase text-[#a56bff]">Preview — confirm karo</div>
+                <div className="text-[11px] text-white/50 truncate max-w-[60%]" title={pending.prompt}>{pending.prompt}</div>
+              </div>
+              <img src={pending.url} alt="preview" className="rounded-xl max-w-full max-h-[60vh] border border-white/10 mx-auto block" />
+              <div className="flex flex-wrap gap-2 justify-end">
+                <a href={pending.url} download="generated.png" className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80">⬇ Download</a>
+                <button type="button" onClick={regeneratePending} disabled={imgBusy} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80 disabled:opacity-40">↻ Regenerate</button>
+                <button type="button" onClick={discardPending} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-red-500/20 text-white/80">✕ Discard</button>
+                <button type="button" onClick={confirmPending} className="text-[11px] px-3 py-1.5 rounded-md bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black font-semibold">Send to chat ↑</button>
+              </div>
             </div>
           )}
         </div>
       </div>
+
 
       <form onSubmit={submit} className="border-t border-white/5 p-3">
         <div className="max-w-3xl mx-auto">
