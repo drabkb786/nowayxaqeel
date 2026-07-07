@@ -37,9 +37,9 @@ import {
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
-      { title: "Noway Chat — Multi-Model AI Chat (GPT & Gemini)" },
+      { title: "NOWAYxAQEEL GPT — Multi-Model AI Chat (GPT & Gemini)" },
       { name: "description", content: "Chat with GPT-5.5, GPT-5, Gemini 2.5 Pro and Flash in one clean interface. Streaming responses, custom system prompts, compare mode, and cloud-saved history." },
-      { property: "og:title", content: "Noway Chat" },
+      { property: "og:title", content: "NOWAYxAQEEL GPT" },
       { property: "og:description", content: "Multi-model AI chat: GPT and Gemini in one place." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -268,9 +268,9 @@ function ChatPage() {
             <Menu className="w-4 h-4" />
           </button>
           <div className={`flex items-center gap-2 min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center font-bold text-black text-sm">N</div>
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center font-black text-black text-[10px] tracking-tight">NxA</div>
             <div className="min-w-0">
-              <div className="font-semibold text-sm truncate">Noway Chat</div>
+              <div className="font-semibold text-sm truncate">NOWAYxAQEEL GPT</div>
               <div className="text-[10px] text-sidebar-foreground/40">GPT · Gemini</div>
             </div>
           </div>
@@ -456,8 +456,8 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (v: string)
 
 function AiAvatar() {
   return (
-    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center text-black text-xs font-bold shadow-sm">
-      N
+    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center text-black text-[9px] font-black tracking-tight shadow-sm">
+      NxA
     </div>
   );
 }
@@ -679,7 +679,7 @@ function SingleChat({
             <div className="pt-10 sm:pt-16 pb-8 animate-in fade-in duration-500">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mint/10 border border-mint/30 text-mint text-[11px] tracking-widest uppercase font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-mint animate-pulse" />
-                Noway · Online
+                NOWAYxAQEEL · Online
               </div>
               <h1 className="mt-5 font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[0.95] bg-gradient-to-br from-mint via-primary to-mint-glow bg-clip-text text-transparent">
                 Hello, @{username}
@@ -788,7 +788,7 @@ function SingleChat({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
-                placeholder="Message Noway…"
+                placeholder="Message NOWAYxAQEEL…"
                 rows={1}
                 className="flex-1 min-w-0 w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground max-h-48 py-2.5 px-2 leading-relaxed"
               />
@@ -847,7 +847,7 @@ function SingleChat({
             )}
           </div>
           <div className="mt-2 text-center text-[10px] text-muted-foreground">
-            Noway can make mistakes. Verify important info.
+            NOWAYxAQEEL GPT can make mistakes. Verify important info.
           </div>
         </div>
       </form>
