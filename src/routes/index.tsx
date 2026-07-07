@@ -322,11 +322,14 @@ function SingleChat({
     e.preventDefault();
     if (busy || (!input.trim() && !attached)) return;
     const prompt = input.trim();
-    if (isImageModel(model)) {
+    // Auto-detect image request even on text models
+    const wantsImage = isImageModel(model) || looksLikeImageRequest(prompt);
+    if (wantsImage) {
       if (!prompt) return;
       setInput("");
       setAttached(null);
-      void generateImage(prompt);
+      const imgModel = isImageModel(model) ? model : "google/gemini-3-pro-image";
+      void generateImage(prompt, imgModel);
       return;
     }
     if (attached && attached.type.startsWith("image/")) {
