@@ -17,6 +17,64 @@ const ALLOWED = new Set([
   "google/gemini-2.5-flash-lite",
 ]);
 
+const URL_REGEX = /\bhttps?:\/\/[^\s<>"'`)]+/gi;
+const MAX_URLS = 4;
+const PER_URL_CHARS = 8000;
+
+function extractLatestUserText(messages: UIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "user") continue;
+    const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
+    if (Array.isArray(parts)) {
+      const text = parts
+        .filter((p) => p.type === "text" && typeof p.text === "string")
+        .map((p) => p.text as string)
+        .join(" ")
+        .trim();
+      if (text) return text;
+    }
+  }
+  return "";
+}
+
+function extractUrls(text: string): string[] {
+  const matches = text.match(URL_REGEX) ?? [];
+  const cleaned = matches.map((u) => u.replace(/[)\].,;:!?]+$/g, ""));
+  return Array.from(new Set(cleaned)).slice(0, MAX_URLS);
+}
+
+async function firecrawlScrape(apiKey: string, url: string) {
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url,
+        formats: ["markdown"],
+        onlyMainContent: true,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      return { url, ok: false as const, error: `HTTP ${res.status}: ${errText.slice(0, 200)}` };
+    }
+    const json = (await res.json()) as {
+      data?: { markdown?: string; metadata?: { title?: string } };
+    };
+    const md = json.data?.markdown?.trim() ?? "";
+    const title = json.data?.metadata?.title ?? "";
+    if (!md) return { url, ok: false as const, error: "No content extracted" };
+    return { url, ok: true as const, title, markdown: md.slice(0, PER_URL_CHARS) };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { url, ok: false as const, error: msg };
+  }
+}
+
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
@@ -30,7 +88,29 @@ export const Route = createFileRoute("/api/chat")({
         if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
 
         const COMPARISON_RULES = `\n\nSTRUCTURED COMPARISON RULES (MANDATORY when the user asks to compare two or more subjects — items, tools, concepts, products, options, etc.):\n1. Brief Overview: Start with a 1-2 sentence intro defining the subjects being compared.\n2. Side-by-Side Comparison Table: Render a proper Markdown table comparing the subjects across relevant, objective criteria (Features, Performance, Cost, Ease of Use, etc.). Use \`|\` pipes and a header separator row so it renders as a real table.\n3. Detailed Breakdown: Use H3 sub-headings (### ) with bullet points covering:\n   - Pros and Cons for each subject\n   - Key Features exclusive to each\n4. Final Verdict / Recommendation: End with a clear, practical recommendation stating which option suits which use case (e.g., "Choose X if you need…, choose Y if your priority is…").\nDo NOT respond to comparison requests with long unstructured paragraphs. Always follow this format.`;
-        const sys = ((body.system?.trim() ?? "") + COMPARISON_RULES).trim();
+
+        // URL detection → auto-scrape via Firecrawl
+        let urlContext = "";
+        const fcKey = process.env.FIRECRAWL_API_KEY;
+        const latestText = extractLatestUserText(body.messages);
+        const urls = extractUrls(latestText);
+        if (urls.length > 0 && fcKey) {
+          const scraped = await Promise.all(urls.map((u) => firecrawlScrape(fcKey, u)));
+          const blocks: string[] = [];
+          scraped.forEach((s, i) => {
+            const n = i + 1;
+            if (s.ok) {
+              blocks.push(`--- SOURCE [${n}] ${s.title || s.url}\nURL: ${s.url}\n\n${s.markdown}`);
+            } else {
+              blocks.push(`--- SOURCE [${n}] ${s.url}\n(Failed to scrape: ${s.error})`);
+            }
+          });
+          urlContext = `\n\nURL CONTEXT (scraped from the user-provided links; treat as the authoritative source and answer STRICTLY from this content — if the answer is not present, say so explicitly instead of guessing):\n\n${blocks.join("\n\n")}\n\nRULES FOR URL-BASED ANSWERS:\n- Base every factual claim strictly on the scraped SOURCE blocks above.\n- Cite the source inline as [n] matching the SOURCE numbers.\n- If the scraped content does not cover the user's question, say: "The provided page does not contain information about that."\n- Do not invent facts, statistics, or quotes that are not in the scraped text.`;
+        } else if (urls.length > 0 && !fcKey) {
+          urlContext = `\n\nNOTE: The user provided ${urls.length} URL(s) but the Firecrawl connector is not configured, so the pages could not be scraped. Ask the user to enable Firecrawl or paste the relevant text.`;
+        }
+
+        const sys = ((body.system?.trim() ?? "") + COMPARISON_RULES + urlContext).trim();
         try {
           const { createLovableGateway } = await import("@/lib/ai-gateway.server");
           const gateway = createLovableGateway(key);
