@@ -30,7 +30,20 @@ type Doc = {
 };
 
 function pickPdfModel(): string {
-  return "openai/gpt-5-mini";
+  // Faster than gpt-5-mini; two sequential calls + image generations must
+  // fit within the Worker's wall-clock budget, so speed matters more than
+  // marginal quality gains here.
+  return "google/gemini-2.5-flash";
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const DRAFT_SYSTEM = `You are a senior editorial writer producing premium, magazine-quality long-form documents.
