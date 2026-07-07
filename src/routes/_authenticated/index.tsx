@@ -659,29 +659,40 @@ function SingleChat({
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {messages.length === 0 && (
-            <div className="pt-16 sm:pt-24 pb-8 animate-in fade-in duration-500">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight bg-gradient-to-r from-mint via-primary to-mint-glow bg-clip-text text-transparent">
+            <div className="pt-10 sm:pt-16 pb-8 animate-in fade-in duration-500">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mint/10 border border-mint/30 text-mint text-[11px] tracking-widest uppercase font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-mint animate-pulse" />
+                Noway · Online
+              </div>
+              <h1 className="mt-5 font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[0.95] bg-gradient-to-br from-mint via-primary to-mint-glow bg-clip-text text-transparent">
                 Hello, @{username}
               </h1>
-              <p className="mt-3 text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-muted-foreground">
-                How can I help you today?
+              <p className="mt-3 text-xl sm:text-2xl md:text-3xl font-display font-medium tracking-tight text-muted-foreground">
+                Aaj kya banayenge?
               </p>
-              <div className="mt-10 grid sm:grid-cols-2 gap-3">
-                {SUGGESTIONS.map((s) => {
+              <div className="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
+                {SUGGESTIONS.map((s, i) => {
                   const Icon = s.icon;
+                  const spans = [
+                    "col-span-2 lg:col-span-2 lg:row-span-2",
+                    "col-span-2 lg:col-span-2",
+                    "col-span-1 lg:col-span-1",
+                    "col-span-1 lg:col-span-1",
+                  ];
                   return (
                     <button
                       key={s.title}
                       type="button"
                       onClick={() => onSuggestion(s.prompt)}
-                      className="group text-left rounded-2xl border border-border bg-background/60 backdrop-blur-xl p-4 hover:bg-muted/60 hover:border-ring/40 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
+                      className={`group relative overflow-hidden text-left bento-card p-5 hover:mint-glow hover:-translate-y-0.5 transition-all duration-300 ${spans[i] ?? ""}`}
                     >
-                      <div className="text-sm font-medium text-foreground leading-snug min-h-[2.5rem]">
-                        {s.title}
-                      </div>
-                      <div className="mt-6 flex justify-end">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:text-foreground transition">
-                          <Icon className="w-4 h-4" />
+                      <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-mint/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative flex flex-col h-full min-h-[7rem] justify-between gap-6">
+                        <div className="w-10 h-10 rounded-xl bg-mint/15 border border-mint/25 flex items-center justify-center text-mint">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="font-display text-base sm:text-lg font-medium text-foreground leading-snug">
+                          {s.title}
                         </div>
                       </div>
                     </button>
