@@ -77,9 +77,9 @@ function AuthPage() {
     <div className="min-h-screen bg-[#0a0912] text-white flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#a56bff] to-[#22d3ee] flex items-center justify-center font-bold text-black">N</div>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#a56bff] to-[#22d3ee] flex items-center justify-center font-black text-black text-xs tracking-tight">NxA</div>
           <div>
-            <div className="font-semibold">Noway Chat</div>
+            <div className="font-semibold">NOWAYxAQEEL GPT</div>
             <div className="text-[10px] text-white/40 tracking-widest uppercase">
               {mode === "signin" ? "Sign in" : "Create account"}
             </div>
