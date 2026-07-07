@@ -721,7 +721,8 @@ function ComparePanel({ label, text, error, loading }: { label: string; text: st
       {error && <div className="text-xs text-red-400">{error}</div>}
       {text && (
         <div className="prose prose-sm prose-invert max-w-none text-sm">
-          <ReactMarkdown>{text}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+
         </div>
       )}
     </div>
