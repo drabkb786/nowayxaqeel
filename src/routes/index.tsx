@@ -287,7 +287,7 @@ function SingleChat({
 
   const busy = status === "submitted" || status === "streaming" || imgBusy;
 
-  const generateImage = async (prompt: string) => {
+  const generateImage = async (prompt: string, imgModel: string = model) => {
     const userMsg: UIMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -300,7 +300,7 @@ function SingleChat({
       const res = await fetch("/api/image", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt, model }),
+        body: JSON.stringify({ prompt, model: imgModel }),
       });
       if (!res.ok) throw new Error(await res.text());
       const { b64_json, mediaType } = (await res.json()) as { b64_json: string; mediaType: string };
