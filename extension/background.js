@@ -12,16 +12,14 @@ const CHECKOUT_URL = 'https://chatgpt.com/backend-api/payments/checkout';
 const DEFAULTS = {
   planName: 'chatgptplusplan',
   entryPoint: 'all_plans_pricing_modal',
-  // NOTE: promo intentionally empty. The "plus-1-month-free" promo makes the
-  // amount due 0, which causes Stripe to skip the UPI QR scanner after the
-  // name step. Leaving promo blank forces a real charge so the QR shows.
-  promoId: '',
+  promoId: 'plus-1-month-free',
   promoCode: '',
   country: 'IN',
   currency: 'INR',
   cancelUrl: 'https://chatgpt.com/#pricing',
-  uiMode: 'hosted', // 'hosted' returns full Stripe URL, 'custom' returns session id
+  uiMode: 'hosted',
 };
+
 
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
