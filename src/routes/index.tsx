@@ -19,14 +19,19 @@ export const Route = createFileRoute("/")({
 });
 
 const MODELS = [
-  { id: "openai/gpt-5.5", label: "GPT-5.5", family: "openai" },
-  { id: "openai/gpt-5", label: "GPT-5", family: "openai" },
-  { id: "openai/gpt-5-mini", label: "GPT-5 Mini", family: "openai" },
-  { id: "openai/gpt-5-nano", label: "GPT-5 Nano", family: "openai" },
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", family: "google" },
-  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", family: "google" },
-  { id: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", family: "google" },
+  { id: "openai/gpt-5.5", label: "GPT-5.5", family: "openai", kind: "text" },
+  { id: "openai/gpt-5", label: "GPT-5", family: "openai", kind: "text" },
+  { id: "openai/gpt-5-mini", label: "GPT-5 Mini", family: "openai", kind: "text" },
+  { id: "openai/gpt-5-nano", label: "GPT-5 Nano", family: "openai", kind: "text" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", family: "google", kind: "text" },
+  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", family: "google", kind: "text" },
+  { id: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", family: "google", kind: "text" },
+  { id: "google/gemini-3-pro-image", label: "🎨 Image (Gemini 3 Pro)", family: "google", kind: "image" },
+  { id: "google/gemini-3.1-flash-image", label: "🎨 Image (Nano Banana 2)", family: "google", kind: "image" },
+  { id: "openai/gpt-image-2", label: "🎨 Image (GPT Image 2)", family: "openai", kind: "image" },
 ] as const;
+
+const isImageModel = (id: string) => MODELS.find((m) => m.id === id)?.kind === "image";
 
 type Thread = { id: string; title: string; updatedAt: number; messages: UIMessage[] };
 
