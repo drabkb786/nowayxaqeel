@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { useServerFn } from "@tanstack/react-start";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { exportToGoogleDocs } from "@/lib/gdocs-export.functions";
@@ -182,7 +182,7 @@ function ChatPage() {
 
   const active = useMemo(() => threads.find((t) => t.id === activeId), [threads, activeId]);
 
-  const persistMessages = (id: string, messages: UIMessage[]) => {
+  const persistMessages = useCallback((id: string, messages: UIMessage[]) => {
     const incomingSignature = messagesSignature(messages);
     let shouldPersist = false;
     let prevTitle = "New chat";
@@ -206,7 +206,12 @@ function ChatPage() {
     if (shouldPersist && userId) {
       persistMessagesDb(id, userId, messages, prevTitle).catch((e) => console.error("persist failed", e));
     }
-  };
+  }, [userId]);
+
+  const handleActiveMessagesChange = useCallback((messages: UIMessage[]) => {
+    if (!activeId) return;
+    persistMessages(activeId, messages);
+  }, [activeId, persistMessages]);
 
   const createThread = async () => {
     const t = newThread();
@@ -413,7 +418,7 @@ function ChatPage() {
             modelA={modelA}
             modelB={modelB}
             system={system}
-            onMessagesChange={(m) => persistMessages(active.id, m)}
+             onMessagesChange={handleActiveMessagesChange}
           />
         ) : (
           <SingleChat
@@ -424,7 +429,7 @@ function ChatPage() {
             system={system}
             username={username}
             onSuggestion={sendSuggestion}
-            onMessagesChange={(m) => persistMessages(active.id, m)}
+             onMessagesChange={handleActiveMessagesChange}
           />
         )}
       </main>
@@ -492,6 +497,8 @@ function SingleChat({
   const { messages, setMessages, sendMessage, status, error, stop } = useChat({
     id: threadId,
     messages: seedMessages,
+    generateId: () => crypto.randomUUID(),
+    experimental_throttle: 250,
     transport,
   });
 
@@ -513,13 +520,41 @@ function SingleChat({
 
   const onMsgRef = useRef(onMessagesChange);
   const lastSyncedMessagesRef = useRef("");
+  const syncTimerRef = useRef<number | null>(null);
+  const pendingSyncRef = useRef<UIMessage[] | null>(null);
   useEffect(() => { onMsgRef.current = onMessagesChange; });
   useEffect(() => {
     const signature = messagesSignature(messages);
+    pendingSyncRef.current = messages;
+
+    if (status !== "ready" && status !== "error") return;
     if (signature === lastSyncedMessagesRef.current) return;
     lastSyncedMessagesRef.current = signature;
-    onMsgRef.current(messages);
-  }, [messages]);
+
+    if (syncTimerRef.current !== null) {
+      window.clearTimeout(syncTimerRef.current);
+    }
+
+    syncTimerRef.current = window.setTimeout(() => {
+      syncTimerRef.current = null;
+      const next = pendingSyncRef.current;
+      pendingSyncRef.current = null;
+      if (next) onMsgRef.current(next);
+    }, 0);
+
+    return () => {
+      if (syncTimerRef.current !== null) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+    };
+  }, [messages, status]);
+
+  useEffect(() => () => {
+    if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current);
+    const next = pendingSyncRef.current;
+    if (next) onMsgRef.current(next);
+  }, []);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy, pending]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
 

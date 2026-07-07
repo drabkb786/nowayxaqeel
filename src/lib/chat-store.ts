@@ -12,6 +12,28 @@ function textOf(m: UIMessage): string {
   return (m.parts ?? []).map((p: any) => (p?.type === "text" ? p.text : "")).join("");
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function hash32(input: string, seed: number): string {
+  let h = seed ^ input.length;
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(h ^ input.charCodeAt(i), 0x45d9f3b);
+    h = (h << 13) | (h >>> 19);
+  }
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  return ((h ^ (h >>> 16)) >>> 0).toString(16).padStart(8, "0");
+}
+
+function dbMessageId(id: string): string {
+  if (UUID_RE.test(id)) return id;
+  const raw = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35]
+    .map((seed) => hash32(id, seed))
+    .join("");
+  const variant = ((Number.parseInt(raw.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, "0");
+  return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-4${raw.slice(13, 16)}-${variant}${raw.slice(18, 20)}-${raw.slice(20, 32)}`;
+}
+
 export async function fetchAllThreadsWithMessages(userId: string): Promise<StoredThread[]> {
   const { data: threads, error: tErr } = await supabase
     .from("chat_threads")
@@ -66,7 +88,7 @@ export async function persistMessagesDb(
   // Upsert messages by id (client-generated UUIDs)
   if (messages.length) {
     const rows = messages.map((m) => ({
-      id: m.id,
+      id: dbMessageId(m.id),
       thread_id: threadId,
       user_id: userId,
       role: m.role,
