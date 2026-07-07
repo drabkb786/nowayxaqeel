@@ -864,6 +864,9 @@ function SingleChat({
           {(error || imgErr) && (
             <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
               {error?.message ?? imgErr}
+              {error && retryCountRef.current > 0 && retryCountRef.current <= 2 && (
+                <div className="mt-1 text-muted-foreground">Auto-retrying… (attempt {retryCountRef.current}/2)</div>
+              )}
             </div>
           )}
           {pending && (
