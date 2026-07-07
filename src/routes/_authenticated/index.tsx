@@ -525,21 +525,22 @@ function SingleChat({
   useEffect(() => { onMsgRef.current = onMessagesChange; });
   useEffect(() => {
     const signature = messagesSignature(messages);
+    pendingSyncRef.current = messages;
+
+    if (status !== "ready" && status !== "error") return;
     if (signature === lastSyncedMessagesRef.current) return;
     lastSyncedMessagesRef.current = signature;
-    pendingSyncRef.current = messages;
 
     if (syncTimerRef.current !== null) {
       window.clearTimeout(syncTimerRef.current);
     }
 
-    const delay = status === "ready" || status === "error" ? 0 : 600;
     syncTimerRef.current = window.setTimeout(() => {
       syncTimerRef.current = null;
       const next = pendingSyncRef.current;
       pendingSyncRef.current = null;
       if (next) onMsgRef.current(next);
-    }, delay);
+    }, 0);
 
     return () => {
       if (syncTimerRef.current !== null) {
