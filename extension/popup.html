@@ -3,45 +3,55 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Stripe UPI Pay Link</title>
+    <title>Noway</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
+    <div class="aurora"></div>
     <main class="shell">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">ChatGPT Checkout</p>
-          <h1>Stripe UPI Pay Link</h1>
+        <div class="brand">
+          <div class="logo">N</div>
+          <div>
+            <h1>Noway</h1>
+            <p class="eyebrow">Checkout link generator</p>
+          </div>
         </div>
-        <span class="status" id="statusDot" aria-label="Extension ready"></span>
+        <span class="status" id="statusDot" aria-label="Ready"></span>
       </header>
 
       <form id="checkoutForm" class="form">
-        <label>
-          <span>Country (promo region)</span>
-          <select id="countrySelect"></select>
+        <label class="field">
+          <span>Promo region</span>
+          <div class="select-wrap">
+            <select id="countrySelect"></select>
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
         </label>
         <button id="generateButton" type="submit">
-          <span id="buttonText">Generate Link</span>
+          <span id="buttonText">Generate link</span>
           <span id="spinner" class="spinner" hidden></span>
         </button>
       </form>
 
       <section id="resultPanel" class="result" hidden>
-        <label>
+        <label class="field">
           <span>Checkout URL</span>
           <textarea id="checkoutUrl" readonly rows="4"></textarea>
         </label>
         <div class="actions">
           <button id="copyButton" type="button">Copy</button>
-          <a id="openLink" class="linkButton" target="_blank" rel="noreferrer">Open</a>
+          <a id="openLink" class="linkButton" target="_blank" rel="noreferrer">Open ↗</a>
         </div>
       </section>
 
       <p id="message" class="message" role="status"></p>
 
       <footer class="watermark">
-        <span class="watermark-text">TG: t.me/UsagiAutoX</span>
+        <span class="watermark-text">Created by Noway</span>
       </footer>
     </main>
 
