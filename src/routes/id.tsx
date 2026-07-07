@@ -54,6 +54,10 @@ function Page() {
 
   const regen = (code?: string) => setIdentity(generateIdentity(code ?? countryCode ?? undefined));
 
+  if (!identity) {
+    return <div className="min-h-screen bg-[#0a0912]" />;
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0912] text-white relative overflow-hidden">
       {/* Ambient background */}
