@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stripe UPI Pay Link</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">ChatGPT Checkout</p>
+          <h1>Stripe UPI Pay Link</h1>
+        </div>
+        <span class="status" id="statusDot" aria-label="Extension ready"></span>
+      </header>
+
+      <form id="checkoutForm" class="form">
+        <button id="generateButton" type="submit">
+          <span id="buttonText">Generate Link</span>
+          <span id="spinner" class="spinner" hidden></span>
+        </button>
+      </form>
+
+      <section id="resultPanel" class="result" hidden>
+        <label>
+          <span>Checkout URL</span>
+          <textarea id="checkoutUrl" readonly rows="4"></textarea>
+        </label>
+        <div class="actions">
+          <button id="copyButton" type="button">Copy</button>
+          <a id="openLink" class="linkButton" target="_blank" rel="noreferrer">Open</a>
+        </div>
+      </section>
+
+      <p id="message" class="message" role="status"></p>
+
+      <footer class="watermark">
+        <span class="watermark-text">TG: t.me/UsagiAutoX</span>
+      </footer>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

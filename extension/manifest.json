@@ -1,19 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "NovaTab Ultimate",
-  "version": "1.0.0",
-  "description": "A premium new tab dashboard — glass search, wallpaper studio, favorites, widgets. Better than Momentum, feels like VisionOS.",
-  "chrome_url_overrides": {
-    "newtab": "newtab.html"
-  },
-  "permissions": ["storage", "bookmarks", "topSites"],
-  "icons": {
-    "16": "icon.png",
-    "48": "icon.png",
-    "128": "icon.png"
-  },
+  "name": "ChatGPT Stripe UPI Pay Link",
+  "description": "Create a Stripe checkout link from the signed-in ChatGPT session in this browser.",
+  "version": "1.1.0",
+  "permissions": [
+    "clipboardWrite",
+    "cookies"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://*.chatgpt.com/*"
+  ],
   "action": {
-    "default_icon": "icon.png",
-    "default_title": "NovaTab Ultimate"
+    "default_title": "Get Stripe UPI Pay Link",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   }
 }
