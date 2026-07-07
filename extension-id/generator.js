@@ -4,7 +4,7 @@ const FIRST_F = ["Mary","Jennifer","Linda","Patricia","Elizabeth","Susan","Jessi
 const LAST = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Hernandez","Lopez","Wilson","Anderson","Taylor","Thomas","Moore","Jackson","Martin","Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson","Walker","Young","Allen","King","Wright","Scott","Torres","Nguyen","Hill","Flores","Green","Adams","Nelson","Baker","Hall","Rivera","Campbell","Mitchell","Carter","Roberts","Khan","Ali","Ahmed","Hussain","Malik","Sharma","Patel","Kumar","Singh","Wang","Zhang","Li","Liu","Chen","Yang","Kim","Park","Choi","Sato","Suzuki","Takahashi","Ivanov","Petrov","Kowalski","Nowak","Müller","Schmidt","Fischer","Rossi","Bianchi","Dubois","Bernard"];
 const STREETS_GENERIC = ["Main Street","Park Avenue","Oak Road","Cedar Lane","Hill Road","Church Street","School Road","River Road","Sunset Boulevard","Lake View","Central Avenue","Market Street","Garden Road","Station Road","North Street","South Street","East Avenue","West Road","Green Street","Rose Lane"];
 
-function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 function fillPostal(pattern) {
