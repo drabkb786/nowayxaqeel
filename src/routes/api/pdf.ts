@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 
 type Body = { prompt?: string; model?: string; font?: string };
 
