@@ -548,6 +548,19 @@ function SingleChat({
     setImgErr(null);
     if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url);
     setPending(null);
+
+    // Push the user's message into chat immediately
+    const userMsg: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: prompt }],
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    setPdfStatus("Analyzing your request…");
+    const t1 = setTimeout(() => setPdfStatus("Composing your image…"), 900);
+    const t2 = setTimeout(() => setPdfStatus("Rendering final pixels…"), 2600);
+
     try {
       const res = await fetch("/api/image", {
         method: "POST",
@@ -561,10 +574,21 @@ function SingleChat({
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: mediaType || "image/png" });
       const url = URL.createObjectURL(blob);
-      setPending({ prompt, url, mediaType: mediaType || "image/png", kind: "image", filename: "generated.png" });
+      const asstMsg: UIMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        parts: [
+          { type: "text", text: `Here is your image. You can download or regenerate as needed.` },
+          { type: "file", mediaType: mediaType || "image/png", url, filename: "generated.png" },
+        ],
+      };
+      setMessages((prev) => [...prev, asstMsg]);
     } catch (e) {
       setImgErr(e instanceof Error ? e.message : String(e));
     } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      setPdfStatus(null);
       setImgBusy(false);
     }
   };
