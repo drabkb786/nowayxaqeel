@@ -20,18 +20,8 @@ type Block =
 
 type Doc = { title: string; font?: string; blocks: Block[] };
 
-const PDF_TEXT_MODELS = new Set([
-  "openai/gpt-5.5",
-  "openai/gpt-5",
-  "openai/gpt-5-mini",
-  "openai/gpt-5-nano",
-  "google/gemini-2.5-pro",
-  "google/gemini-2.5-flash",
-  "google/gemini-2.5-flash-lite",
-]);
-
-function pickPdfModel(model?: string): string {
-  return model && PDF_TEXT_MODELS.has(model) ? model : "openai/gpt-5-mini";
+function pickPdfModel(): string {
+  return "openai/gpt-5-mini";
 }
 
 const SYSTEM = `You are an expert document layout assistant. Return ONLY a JSON object (no prose, no code fences) with this exact shape:
@@ -276,7 +266,7 @@ export const Route = createFileRoute("/api/pdf")({
           const key = process.env.LOVABLE_API_KEY;
           if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
 
-          const chosenModel = pickPdfModel(model);
+          const chosenModel = pickPdfModel();
           const userPrompt = font
             ? `${prompt}\n\n(Preferred font family: ${font})`
             : prompt;
