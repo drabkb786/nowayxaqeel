@@ -404,6 +404,11 @@ function SingleChat({
           {(status === "submitted" || imgBusy) && (
             <div className="text-xs text-white/40 animate-pulse">{imgBusy ? "🎨 Generating image…" : "Thinking…"}</div>
           )}
+          {(error || imgErr) && (
+            <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+              {error?.message ?? imgErr}
+            </div>
+          )}
           {pending && (
             <div className="rounded-2xl border border-[#a56bff]/40 bg-[#a56bff]/5 p-3 space-y-3">
               <div className="flex items-center justify-between gap-2">
