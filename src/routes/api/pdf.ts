@@ -104,7 +104,7 @@ function clean(s: string): string {
 async function renderPdf(doc: Doc): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const family = mapFont(doc.font);
-  const fonts = pickFonts(pdf, family);
+  const fonts = await pickFonts(pdf, family);
 
   const PAGE_W = 612; // US Letter
   const PAGE_H = 792;
