@@ -4,6 +4,24 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  Paperclip,
+  Mic,
+  ArrowUp,
+  Square,
+  Plus,
+  Menu,
+  Settings2,
+  LogOut,
+  Trash2,
+  Sun,
+  Moon,
+  Sparkles,
+  PenLine,
+  Code2,
+  ImageIcon,
+  X,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchAllThreadsWithMessages,
@@ -12,13 +30,11 @@ import {
   persistMessagesDb,
 } from "@/lib/chat-store";
 
-
-
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Noway Chat — Multi-Model AI Chat (GPT & Gemini)" },
-      { name: "description", content: "Chat with GPT-5.5, GPT-5, Gemini 2.5 Pro and Flash in one clean interface. Streaming responses, custom system prompts, compare mode, and browser-saved history." },
+      { name: "description", content: "Chat with GPT-5.5, GPT-5, Gemini 2.5 Pro and Flash in one clean interface. Streaming responses, custom system prompts, compare mode, and cloud-saved history." },
       { property: "og:title", content: "Noway Chat" },
       { property: "og:description", content: "Multi-model AI chat: GPT and Gemini in one place." },
       { property: "og:type", content: "website" },
@@ -43,12 +59,10 @@ const MODELS = [
 
 const isImageModel = (id: string) => MODELS.find((m) => m.id === id)?.kind === "image";
 
-// Auto-detect: does the user prompt ask for an actual picture/image?
 const IMAGE_INTENT = /\b(image|picture|photo|photograph|pic|poster|logo|icon|illustration|drawing|sketch|painting|render|artwork|wallpaper|thumbnail|avatar|banner|scene|portrait|meme|design|3d\s*render|tasveer|tasvir|photo\s*bana|picture\s*bana|image\s*bana|banao|bana\s*do|bana\s*ke|draw|paint|generate\s+(an?\s+)?(image|picture|photo|logo|icon))\b/i;
 const CODE_INTENT = /\b(svg|html|css|code|snippet|script|component|function|json|xml|markdown|program)\b/i;
 const looksLikeImageRequest = (text: string) => IMAGE_INTENT.test(text) && !CODE_INTENT.test(text) && !PDF_INTENT.test(text);
 
-// PDF request detection
 const PDF_INTENT = /\b(pdf|document|report|resume|cv|letter|invoice|proposal|whitepaper|brochure|guide|handbook|essay|article|contract|agreement|ebook|pdf\s*bana|document\s*bana|report\s*bana|pdf\s*banao)\b/i;
 const FONT_RE = /\b(arial|helvetica|times(?:\s+new\s+roman)?|roboto|courier|georgia|verdana|calibri|serif|sans-?serif|monospace)\b/i;
 const looksLikePdfRequest = (text: string) => PDF_INTENT.test(text);
@@ -61,6 +75,14 @@ const LS_SYSTEM = "noway.chat.system.v1";
 const LS_MODEL_A = "noway.chat.modelA.v1";
 const LS_MODEL_B = "noway.chat.modelB.v1";
 const LS_COMPARE = "noway.chat.compare.v1";
+const LS_THEME = "noway.chat.theme.v1";
+
+const SUGGESTIONS = [
+  { icon: PenLine, title: "Ek short story likho", prompt: "Ek chhoti si inspiring story likho, 200 words me." },
+  { icon: Code2, title: "React hook samjhao", prompt: "React ke useEffect hook ko simple examples ke saath samjhao." },
+  { icon: ImageIcon, title: "Ek image banao", prompt: "Ek modern minimalist mountain landscape ki image banao." },
+  { icon: Sparkles, title: "Do cheezein compare karo", prompt: "Compare React vs Vue in 2026 for a new frontend project." },
+];
 
 function newThread(): Thread {
   return { id: crypto.randomUUID(), title: "New chat", updatedAt: Date.now(), messages: [] };
@@ -87,13 +109,28 @@ function ChatPage() {
   const [compare, setCompare] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
 
-  // Bootstrap: get user + fetch threads from DB
+  // Theme: apply .dark on documentElement
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const saved = (localStorage.getItem(LS_THEME) as "light" | "dark" | null) ?? "dark";
+    setTheme(saved);
+  }, []);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (theme === "dark") root.classList.add("dark");
+    else root.classList.remove("dark");
+    if (mounted) localStorage.setItem(LS_THEME, theme);
+  }, [theme, mounted]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return; // gate will redirect
+      if (!u.user) return;
       if (cancelled) return;
       setUserId(u.user.id);
       setUsername(String(u.user.user_metadata?.username ?? u.user.email?.split("@")[0] ?? "user"));
@@ -152,7 +189,6 @@ function ChatPage() {
       return next;
     });
     if (shouldPersist && userId) {
-      // Fire-and-forget DB persist (upsert)
       persistMessagesDb(id, userId, messages, prevTitle).catch((e) => console.error("persist failed", e));
     }
   };
@@ -185,104 +221,172 @@ function ChatPage() {
     navigate({ to: "/auth", replace: true });
   };
 
+  const sendSuggestion = (prompt: string) => {
+    // Placed on window for SingleChat to pick up via custom event
+    window.dispatchEvent(new CustomEvent("noway:suggest", { detail: prompt }));
+  };
+
   if (!mounted || !active) {
     return (
-      <div className="min-h-screen bg-[#0a0912] flex items-center justify-center text-white/40 text-sm">
+      <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground text-sm">
         Loading your chats…
       </div>
     );
   }
 
+  const sidebarWidth = sidebarCollapsed ? "lg:w-16" : "lg:w-72";
 
   return (
-    <div className="h-screen bg-[#0a0912] text-white flex overflow-hidden">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 bg-[#0a0912]/95 backdrop-blur border-r border-white/5 flex flex-col transition-transform`}>
-        <div className="p-4 flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#a56bff] to-[#22d3ee] flex items-center justify-center font-bold text-black text-sm">N</div>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm truncate">Noway Chat</div>
-            <div className="text-[10px] text-white/40">GPT · Gemini</div>
+    <div className="h-screen bg-background text-foreground flex overflow-hidden">
+      {/* Sidebar — always dark themed (ChatGPT style) */}
+      <aside
+        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 ${sidebarWidth} bg-[#0b0b12] text-white/90 border-r border-white/5 flex flex-col transition-all duration-300 ease-out`}
+      >
+        <div className="p-3 flex items-center gap-2">
+          <button
+            onClick={() => setSidebarCollapsed((v) => !v)}
+            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg hover:bg-white/5 text-white/70 shrink-0"
+            aria-label="Collapse sidebar"
+            title="Toggle sidebar"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+          <div className={`flex items-center gap-2 min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-[#a56bff] via-[#6d5cff] to-[#22d3ee] flex items-center justify-center font-bold text-black text-sm">N</div>
+            <div className="min-w-0">
+              <div className="font-semibold text-sm truncate">Noway Chat</div>
+              <div className="text-[10px] text-white/40">GPT · Gemini</div>
+            </div>
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5"
+            aria-label="Close sidebar"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <button onClick={createThread} className="mx-4 mb-3 px-3 py-2 rounded-lg text-xs font-semibold text-black bg-gradient-to-r from-[#a56bff] to-[#22d3ee] hover:brightness-110">
-          + New chat
-        </button>
-        <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
+
+        <div className="px-3">
+          <button
+            onClick={createThread}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 transition ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span className={sidebarCollapsed ? "lg:hidden" : ""}>New chat</span>
+          </button>
+        </div>
+
+        <div className={`px-3 pt-4 pb-1 text-[10px] tracking-widest uppercase text-white/30 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+          Recent
+        </div>
+
+        <div className={`flex-1 overflow-y-auto px-2 space-y-0.5 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           {threads.slice().sort((a, b) => b.updatedAt - a.updatedAt).map((t) => (
-            <div key={t.id} className={`group flex items-center gap-1 rounded-lg ${t.id === activeId ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}>
+            <div key={t.id} className={`group flex items-center gap-1 rounded-lg transition ${t.id === activeId ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"}`}>
               <button
                 onClick={() => { setActiveId(t.id); setSidebarOpen(false); }}
-                className="flex-1 text-left px-3 py-2 text-xs truncate"
+                className="flex-1 text-left px-3 py-2 text-sm truncate"
               >
                 {t.title || "New chat"}
               </button>
               <button
                 onClick={() => deleteThread(t.id)}
-                className="opacity-0 group-hover:opacity-100 px-2 py-2 text-white/40 hover:text-red-400 text-xs transition"
+                className="opacity-0 group-hover:opacity-100 px-2 py-2 text-white/40 hover:text-red-400 transition"
                 aria-label="Delete"
               >
-                ✕
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           ))}
         </div>
+
         <div className="p-3 border-t border-white/5 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-[10px] tracking-widest uppercase text-white/30">Signed in</div>
-              <div className="text-xs text-white/80 truncate">@{username}</div>
+          <div className={`flex items-center gap-2 ${sidebarCollapsed ? "lg:justify-center" : ""}`}>
+            <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-[#a56bff] to-[#22d3ee] flex items-center justify-center text-black text-sm font-bold">
+              {username.slice(0, 1).toUpperCase()}
+            </div>
+            <div className={`min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+              <div className="text-sm text-white/90 truncate">@{username}</div>
+              <div className="text-[10px] text-white/40">Signed in</div>
             </div>
             <button
               onClick={signOut}
-              className="text-[10px] tracking-widest uppercase px-2 py-1 rounded-md border border-white/10 text-white/60 hover:text-white hover:bg-white/5"
+              title="Sign out"
+              className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 text-white/60 hover:text-white ${sidebarCollapsed ? "lg:hidden" : ""}`}
+              aria-label="Sign out"
             >
-              Sign out
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
-          <Link to="/id" className="block text-[10px] text-white/40 hover:text-white/70 tracking-widest uppercase">
+          <Link
+            to="/id"
+            className={`block text-[11px] text-white/40 hover:text-white/70 px-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}
+          >
             → ID Generator
           </Link>
         </div>
       </aside>
 
-
       {/* Main */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="flex items-center gap-2 px-4 h-14 border-b border-white/5">
-          <button onClick={() => setSidebarOpen((v) => !v)} className="lg:hidden p-2 rounded-md hover:bg-white/5" aria-label="Toggle sidebar">☰</button>
+      <main className="flex-1 flex flex-col min-w-0 bg-background">
+        <header className="flex items-center gap-2 px-3 sm:px-5 h-14 border-b border-border">
+          <button
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted"
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <ModelPicker value={modelA} onChange={setModelA} />
             {compare && (
               <>
-                <span className="text-white/30 text-xs">vs</span>
+                <span className="text-muted-foreground text-xs">vs</span>
                 <ModelPicker value={modelB} onChange={setModelB} />
               </>
             )}
           </div>
-          <label className="flex items-center gap-2 text-[11px] text-white/60 cursor-pointer">
-            <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} className="accent-[#a56bff]" />
+          <label className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={compare}
+              onChange={(e) => setCompare(e.target.checked)}
+              className="accent-[#a56bff]"
+            />
             Compare
           </label>
           <button
-            onClick={() => setShowSettings((v) => !v)}
-            className="px-3 py-1.5 rounded-md text-[11px] border border-white/10 hover:bg-white/5"
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
+            title="Toggle theme"
+            aria-label="Toggle theme"
           >
-            System
+            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => setShowSettings((v) => !v)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
+            title="System prompt"
+            aria-label="System prompt"
+          >
+            <Settings2 className="w-4 h-4" />
           </button>
         </header>
 
         {showSettings && (
-          <div className="px-4 py-3 border-b border-white/5 bg-white/[0.02]">
-            <label className="text-[10px] tracking-widest uppercase text-white/40">System prompt</label>
+          <div className="px-4 sm:px-6 py-3 border-b border-border bg-muted/30">
+            <label className="text-[10px] tracking-widest uppercase text-muted-foreground">System prompt</label>
             <textarea
               value={system}
               onChange={(e) => setSystem(e.target.value)}
               rows={3}
               placeholder="You are a helpful assistant..."
-              className="mt-1 w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/10 text-sm outline-none focus:border-white/30"
+              className="mt-1 w-full px-3 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:border-ring"
             />
-            <p className="text-[10px] text-white/30 mt-1">Applied to every new message in this chat. Empty = model default.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Applied to every new message in this chat. Empty = model default.
+            </p>
           </div>
         )}
 
@@ -303,13 +407,18 @@ function ChatPage() {
             initialMessages={active.messages}
             model={modelA}
             system={system}
+            username={username}
+            onSuggestion={sendSuggestion}
             onMessagesChange={(m) => persistMessages(active.id, m)}
           />
         )}
       </main>
 
       {sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-20 lg:hidden" />
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 lg:hidden"
+        />
       )}
     </div>
   );
@@ -320,22 +429,32 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (v: string)
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-1.5 rounded-md bg-white/[0.04] border border-white/10 text-xs outline-none hover:bg-white/[0.08] cursor-pointer"
+      className="px-3 py-1.5 rounded-lg bg-muted border border-border text-xs outline-none hover:bg-accent cursor-pointer text-foreground max-w-[180px] sm:max-w-none truncate"
     >
       {MODELS.map((m) => (
-        <option key={m.id} value={m.id} className="bg-[#0a0912]">{m.label}</option>
+        <option key={m.id} value={m.id} className="bg-background text-foreground">{m.label}</option>
       ))}
     </select>
   );
 }
 
+function AiAvatar() {
+  return (
+    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-[#a56bff] via-[#6d5cff] to-[#22d3ee] flex items-center justify-center text-black text-xs font-bold shadow-sm">
+      N
+    </div>
+  );
+}
+
 function SingleChat({
-  threadId, initialMessages, model, system, onMessagesChange,
+  threadId, initialMessages, model, system, username, onMessagesChange, onSuggestion,
 }: {
   threadId: string;
   initialMessages: UIMessage[];
   model: string;
   system: string;
+  username: string;
+  onSuggestion: (prompt: string) => void;
   onMessagesChange: (m: UIMessage[]) => void;
 }) {
   const [depth, setDepth] = useState<"standard" | "extended">("standard");
@@ -353,7 +472,6 @@ function SingleChat({
     [model, system, depth],
   );
 
-  // Freeze initial messages per thread so parent-persist updates don't feed back into useChat
   const seedMessages = useMemo(() => initialMessages, [threadId]);
   const { messages, setMessages, sendMessage, status, error, stop } = useChat({
     id: threadId,
@@ -387,8 +505,24 @@ function SingleChat({
   }, [messages]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy, pending]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
-  // Note: blob URLs used by confirmed messages must NOT be auto-revoked;
-  // the browser reclaims them on page unload. We revoke only on discard/regen.
+
+  // Auto-grow textarea
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [input]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const prompt = (e as CustomEvent<string>).detail;
+      if (typeof prompt === "string") setInput(prompt);
+      textareaRef.current?.focus();
+    };
+    window.addEventListener("noway:suggest", handler);
+    return () => window.removeEventListener("noway:suggest", handler);
+  }, []);
 
   const busy = status === "submitted" || status === "streaming" || imgBusy;
 
@@ -405,7 +539,6 @@ function SingleChat({
       });
       if (!res.ok) throw new Error(await res.text());
       const { b64_json, mediaType } = (await res.json()) as { b64_json: string; mediaType: string };
-      // Decode base64 → Blob so browser treats it as a real PNG (correct MIME, clean download)
       const bin = atob(b64_json);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -458,7 +591,7 @@ function SingleChat({
       parts: [{ type: "file", mediaType: pending.mediaType, url: pending.url, filename: pending.filename }],
     };
     setMessages((prev) => [...prev, userMsg, asstMsg]);
-    setPending(null); // do NOT revoke — msg is now using this url
+    setPending(null);
   };
 
   const discardPending = () => {
@@ -480,7 +613,6 @@ function SingleChat({
     e.preventDefault();
     if (busy || (!input.trim() && !attached)) return;
     const prompt = input.trim();
-    // Auto-detect PDF/document request
     if (looksLikePdfRequest(prompt)) {
       if (!prompt) return;
       setInput("");
@@ -488,7 +620,6 @@ function SingleChat({
       void generatePdf(prompt, extractFont(prompt));
       return;
     }
-    // Auto-detect image request even on text models
     const wantsImage = isImageModel(model) || looksLikeImageRequest(prompt);
     if (wantsImage) {
       if (!prompt) return;
@@ -521,24 +652,55 @@ function SingleChat({
     reader.readAsDataURL(f);
   };
 
+  const canSend = !!input.trim() || !!attached;
+
   return (
     <>
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {messages.length === 0 && (
-            <div className="text-center py-20">
-              <div className="text-2xl font-semibold bg-gradient-to-r from-[#a56bff] to-[#22d3ee] bg-clip-text text-transparent">
-                Kya poochhna hai?
+            <div className="pt-16 sm:pt-24 pb-8 animate-in fade-in duration-500">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight bg-gradient-to-r from-[#4285f4] via-[#a56bff] to-[#ec4899] bg-clip-text text-transparent">
+                Hello, @{username}
+              </h1>
+              <p className="mt-3 text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-muted-foreground">
+                How can I help you today?
+              </p>
+              <div className="mt-10 grid sm:grid-cols-2 gap-3">
+                {SUGGESTIONS.map((s) => {
+                  const Icon = s.icon;
+                  return (
+                    <button
+                      key={s.title}
+                      type="button"
+                      onClick={() => onSuggestion(s.prompt)}
+                      className="group text-left rounded-2xl border border-border bg-background/60 backdrop-blur-xl p-4 hover:bg-muted/60 hover:border-ring/40 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
+                    >
+                      <div className="text-sm font-medium text-foreground leading-snug min-h-[2.5rem]">
+                        {s.title}
+                      </div>
+                      <div className="mt-6 flex justify-end">
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:text-foreground transition">
+                          <Icon className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-white/40 text-sm mt-2">Text ke liye GPT/Gemini, picture ke liye 🎨 Image model select karo.</p>
             </div>
           )}
           {messages.map((m) => <MessageBubble key={m.id} m={m} />)}
           {(status === "submitted" || imgBusy) && (
-            <div className="text-xs text-white/40 animate-pulse">{imgBusy ? "⏳ Generating…" : "Thinking…"}</div>
+            <div className="flex items-start gap-3">
+              <AiAvatar />
+              <div className="text-sm text-muted-foreground animate-pulse pt-1.5">
+                {imgBusy ? "Generating…" : "Thinking…"}
+              </div>
+            </div>
           )}
           {(error || imgErr) && (
-            <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+            <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
               {error?.message ?? imgErr}
             </div>
           )}
@@ -548,17 +710,17 @@ function SingleChat({
                 <div className="text-[10px] tracking-widest uppercase text-[#a56bff]">
                   {pending.kind === "pdf" ? "PDF Preview — confirm karo" : "Preview — confirm karo"}
                 </div>
-                <div className="text-[11px] text-white/50 truncate max-w-[60%]" title={pending.prompt}>{pending.prompt}</div>
+                <div className="text-[11px] text-muted-foreground truncate max-w-[60%]" title={pending.prompt}>{pending.prompt}</div>
               </div>
               {pending.kind === "pdf" ? (
-                <iframe src={pending.url} title="pdf-preview" className="w-full h-[70vh] rounded-xl border border-white/10 bg-white" />
+                <iframe src={pending.url} title="pdf-preview" className="w-full h-[70vh] rounded-xl border border-border bg-white" />
               ) : (
-                <img src={pending.url} alt="preview" className="rounded-xl max-w-full max-h-[60vh] border border-white/10 mx-auto block" />
+                <img src={pending.url} alt="preview" className="rounded-xl max-w-full max-h-[60vh] border border-border mx-auto block" />
               )}
               <div className="flex flex-wrap gap-2 justify-end">
-                <a href={pending.url} download={pending.filename} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80">⬇ Download</a>
-                <button type="button" onClick={regeneratePending} disabled={imgBusy} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80 disabled:opacity-40">↻ Regenerate</button>
-                <button type="button" onClick={discardPending} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-red-500/20 text-white/80">✕ Discard</button>
+                <a href={pending.url} download={pending.filename} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-foreground">⬇ Download</a>
+                <button type="button" onClick={regeneratePending} disabled={imgBusy} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-foreground disabled:opacity-40">↻ Regenerate</button>
+                <button type="button" onClick={discardPending} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-destructive/20 text-foreground">✕ Discard</button>
                 <button type="button" onClick={confirmPending} className="text-[11px] px-3 py-1.5 rounded-md bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black font-semibold">Send to chat ↑</button>
               </div>
             </div>
@@ -566,49 +728,80 @@ function SingleChat({
         </div>
       </div>
 
-
-      <form onSubmit={submit} className="border-t border-white/5 p-3">
+      {/* Floating pill composer */}
+      <form onSubmit={submit} className="px-4 sm:px-6 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
         <div className="max-w-3xl mx-auto">
           {attached && (
-            <div className="mb-2 flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/5 text-xs">
-              <span>📎</span>
-              <span className="flex-1 truncate">{attached.name}</span>
-              <button type="button" onClick={() => setAttached(null)} className="text-white/40 hover:text-white">✕</button>
+            <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-muted text-xs text-foreground max-w-fit mx-auto shadow-sm">
+              <Paperclip className="w-3.5 h-3.5" />
+              <span className="truncate max-w-[200px]">{attached.name}</span>
+              <button type="button" onClick={() => setAttached(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
-          <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 focus-within:border-white/20">
-            <label className="cursor-pointer text-white/50 hover:text-white p-1" title="Attach image">
-              📎
+          <div className="flex items-end gap-2 rounded-[28px] border border-border bg-muted/60 backdrop-blur-xl px-2 py-2 shadow-lg shadow-black/5 dark:shadow-black/40 focus-within:border-ring/50 transition-colors">
+            <label className="cursor-pointer w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-background/60 transition shrink-0" title="Attach image">
+              <Paperclip className="w-5 h-5" />
               <input type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
             </label>
+            <button
+              type="button"
+              className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-background/60 transition shrink-0"
+              title="Voice (coming soon)"
+              aria-label="Voice"
+              disabled
+            >
+              <Mic className="w-5 h-5" />
+            </button>
             <textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
-              placeholder="Message…"
+              placeholder="Message Noway…"
               rows={1}
-              className="flex-1 bg-transparent resize-none outline-none text-sm placeholder:text-white/30 max-h-48 py-1"
+              className="flex-1 bg-transparent resize-none outline-none text-[15px] placeholder:text-muted-foreground max-h-48 py-2.5 px-1 leading-relaxed"
             />
-            {busy ? (
-              <button type="button" onClick={stop} className="px-3 py-1.5 rounded-lg bg-white/10 text-xs hover:bg-white/20">Stop</button>
-            ) : (
-              <>
-                <select
-                  value={depth}
-                  onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
-                  title="Response depth"
-                  className="text-[11px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2 py-1.5 outline-none cursor-pointer text-white/80"
-                >
-                  <option value="standard" className="bg-[#0b0b12]">Standard</option>
-                  <option value="extended" className="bg-[#0b0b12]">Extended</option>
-                </select>
-                <button type="submit" disabled={!input.trim() && !attached} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black text-xs font-semibold disabled:opacity-40">
-                  Send ↑
-                </button>
-              </>
+            {!busy && (
+              <select
+                value={depth}
+                onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
+                title="Response depth"
+                className="hidden sm:block text-xs bg-background/60 hover:bg-background border border-border rounded-full px-3 py-1.5 outline-none cursor-pointer text-foreground self-center"
+              >
+                <option value="standard">Standard</option>
+                <option value="extended">Extended</option>
+              </select>
             )}
-
+            {busy ? (
+              <button
+                type="button"
+                onClick={stop}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-foreground text-background hover:opacity-90 transition shrink-0"
+                title="Stop"
+                aria-label="Stop"
+              >
+                <Square className="w-4 h-4 fill-current" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!canSend}
+                className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all duration-200 ${
+                  canSend
+                    ? "bg-gradient-to-br from-[#a56bff] to-[#22d3ee] text-black shadow-md hover:shadow-lg hover:brightness-110 scale-100"
+                    : "bg-muted text-muted-foreground scale-95"
+                }`}
+                aria-label="Send"
+                title="Send"
+              >
+                <ArrowUp className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          <div className="mt-2 text-center text-[10px] text-muted-foreground">
+            Noway can make mistakes. Verify important info.
           </div>
         </div>
       </form>
@@ -626,9 +819,7 @@ function CompareView({
   system: string;
   onMessagesChange: (m: UIMessage[]) => void;
 }) {
-  // Compare mode: send once, get two responses, store as pairs.
   const [pairs, setPairs] = useState<{ user: string; a: string; b: string; aErr?: string; bErr?: string }[]>(() => {
-    // Load from initialMessages if they were saved as compare pairs (encoded)
     const out: { user: string; a: string; b: string }[] = [];
     for (let i = 0; i < initialMessages.length; i += 2) {
       const u = initialMessages[i];
@@ -672,7 +863,6 @@ function CompareView({
       body: JSON.stringify({ messages: msgs, model, system }),
     });
     if (!res.ok) throw new Error(await res.text());
-    // Read UI message stream: extract text-delta events
     const reader = res.body!.getReader();
     const decoder = new TextDecoder();
     let buf = "";
@@ -703,7 +893,7 @@ function CompareView({
     setLoading(true);
     const history = pairs.flatMap((p) => [
       { role: "user", content: p.user },
-      { role: "assistant", content: p.a }, // use A history for both
+      { role: "assistant", content: p.a },
     ]);
     history.push({ role: "user", content: user });
     setPairs((prev) => [...prev, { user, a: "", b: "" }]);
@@ -731,16 +921,16 @@ function CompareView({
   return (
     <>
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {pairs.length === 0 && (
-            <div className="text-center py-20 text-white/40 text-sm">
+            <div className="text-center py-24 text-muted-foreground text-sm">
               Compare mode — same prompt do models ko jayega, jawab side-by-side.
             </div>
           )}
           {pairs.map((p, i) => (
             <div key={i} className="space-y-3">
               <div className="flex justify-end">
-                <div className="max-w-2xl px-4 py-2 rounded-2xl bg-gradient-to-r from-[#a56bff] to-[#6d5cff] text-black text-sm">
+                <div className="max-w-2xl px-4 py-2.5 rounded-2xl bg-muted text-foreground text-sm">
                   {p.user}
                 </div>
               </div>
@@ -752,18 +942,27 @@ function CompareView({
           ))}
         </div>
       </div>
-      <form onSubmit={submit} className="border-t border-white/5 p-3">
-        <div className="max-w-6xl mx-auto flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 focus-within:border-white/20">
+      <form onSubmit={submit} className="px-4 sm:px-6 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
+        <div className="max-w-6xl mx-auto flex items-end gap-2 rounded-[28px] border border-border bg-muted/60 backdrop-blur-xl px-2 py-2 shadow-lg focus-within:border-ring/50">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
             placeholder="Prompt for both models…"
             rows={1}
-            className="flex-1 bg-transparent resize-none outline-none text-sm placeholder:text-white/30 max-h-48 py-1"
+            className="flex-1 bg-transparent resize-none outline-none text-[15px] placeholder:text-muted-foreground max-h-48 py-2.5 px-3"
           />
-          <button type="submit" disabled={loading || !input.trim()} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black text-xs font-semibold disabled:opacity-40">
-            {loading ? "…" : "Send ↑"}
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all ${
+              input.trim() && !loading
+                ? "bg-gradient-to-br from-[#a56bff] to-[#22d3ee] text-black shadow-md hover:brightness-110"
+                : "bg-muted text-muted-foreground"
+            }`}
+            aria-label="Send"
+          >
+            <ArrowUp className="w-5 h-5" />
           </button>
         </div>
       </form>
@@ -773,14 +972,13 @@ function CompareView({
 
 function ComparePanel({ label, text, error, loading }: { label: string; text: string; error?: string; loading: boolean }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-      <div className="text-[10px] tracking-widest uppercase text-white/40 mb-2">{label}</div>
-      {loading && <div className="text-xs text-white/40 animate-pulse">Thinking…</div>}
-      {error && <div className="text-xs text-red-400">{error}</div>}
+    <div className="rounded-2xl border border-border bg-muted/30 p-4">
+      <div className="text-[10px] tracking-widest uppercase text-muted-foreground mb-2">{label}</div>
+      {loading && <div className="text-xs text-muted-foreground animate-pulse">Thinking…</div>}
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {text && (
-        <div className="prose prose-sm prose-invert max-w-none text-sm">
+        <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
-
         </div>
       )}
     </div>
@@ -795,17 +993,17 @@ function MessageBubble({ m }: { m: UIMessage }) {
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
+      <div className="flex justify-end animate-in fade-in slide-in-from-bottom-2 duration-300">
         <div className="max-w-2xl space-y-2">
           {fileParts.map((f, i) => (
             f.mediaType.startsWith("image/") ? (
-              <img key={i} src={f.url} alt={f.filename ?? "attachment"} className="rounded-xl max-h-64 ml-auto block" />
+              <img key={i} src={f.url} alt={f.filename ?? "attachment"} className="rounded-2xl max-h-64 ml-auto block border border-border" />
             ) : (
-              <div key={i} className="text-xs text-white/60 ml-auto">📎 {f.filename}</div>
+              <div key={i} className="text-xs text-muted-foreground ml-auto">📎 {f.filename}</div>
             )
           ))}
           {text && (
-            <div className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#a56bff] to-[#6d5cff] text-black text-sm whitespace-pre-wrap">
+            <div className="px-4 py-2.5 rounded-2xl bg-muted text-foreground text-[15px] whitespace-pre-wrap leading-relaxed">
               {text}
             </div>
           )}
@@ -814,31 +1012,34 @@ function MessageBubble({ m }: { m: UIMessage }) {
     );
   }
   return (
-    <div className="space-y-3">
-      {fileParts.map((f, i) => (
-        f.mediaType.startsWith("image/") ? (
-          <div key={i} className="space-y-2">
-            <img src={f.url} alt={f.filename ?? "generated"} className="rounded-xl max-w-full max-h-[70vh] border border-white/10" />
-            <a href={f.url} download={f.filename ?? "image.png"} className="inline-block text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70">
-              ⬇ Download PNG
-            </a>
+    <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <AiAvatar />
+      <div className="flex-1 min-w-0 space-y-3 pt-0.5">
+        {fileParts.map((f, i) => (
+          f.mediaType.startsWith("image/") ? (
+            <div key={i} className="space-y-2">
+              <img src={f.url} alt={f.filename ?? "generated"} className="rounded-2xl max-w-full max-h-[70vh] border border-border" />
+              <a href={f.url} download={f.filename ?? "image.png"} className="inline-block text-[11px] px-2.5 py-1 rounded-md bg-muted hover:bg-accent text-foreground">
+                ⬇ Download PNG
+              </a>
+            </div>
+          ) : f.mediaType === "application/pdf" ? (
+            <div key={i} className="space-y-2">
+              <iframe src={f.url} title={f.filename ?? "pdf"} className="w-full h-[60vh] rounded-2xl border border-border bg-white" />
+              <a href={f.url} download={f.filename ?? "document.pdf"} className="inline-block text-[11px] px-2.5 py-1 rounded-md bg-muted hover:bg-accent text-foreground">
+                ⬇ Download PDF · {f.filename}
+              </a>
+            </div>
+          ) : (
+            <div key={i} className="text-xs text-muted-foreground">📎 {f.filename}</div>
+          )
+        ))}
+        {text && (
+          <div className="prose prose-sm dark:prose-invert max-w-none text-[15px] leading-relaxed prose-p:my-2 prose-pre:rounded-xl prose-pre:bg-muted prose-code:before:content-none prose-code:after:content-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
           </div>
-        ) : f.mediaType === "application/pdf" ? (
-          <div key={i} className="space-y-2">
-            <iframe src={f.url} title={f.filename ?? "pdf"} className="w-full h-[60vh] rounded-xl border border-white/10 bg-white" />
-            <a href={f.url} download={f.filename ?? "document.pdf"} className="inline-block text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70">
-              ⬇ Download PDF · {f.filename}
-            </a>
-          </div>
-        ) : (
-          <div key={i} className="text-xs text-white/60">📎 {f.filename}</div>
-        )
-      ))}
-      {text && (
-        <div className="prose prose-sm prose-invert max-w-none text-[15px] leading-relaxed">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
