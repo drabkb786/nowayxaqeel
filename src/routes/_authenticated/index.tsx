@@ -456,8 +456,8 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (v: string)
 
 function AiAvatar() {
   return (
-    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center text-black text-xs font-bold shadow-sm">
-      N
+    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center text-black text-[9px] font-black tracking-tight shadow-sm">
+      NxA
     </div>
   );
 }
