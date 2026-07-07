@@ -1,9 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
+import { useServerFn } from "@tanstack/react-start";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { exportToGoogleDocs } from "@/lib/gdocs-export.functions";
+import { FileText, Check, Loader2 } from "lucide-react";
 import {
   Paperclip,
   Mic,
@@ -1082,7 +1085,66 @@ function MessageBubble({ m }: { m: UIMessage }) {
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
           </div>
         )}
+        {text && text.trim().length > 40 && <ExportToGoogleDocsButton markdown={text} />}
       </div>
     </div>
   );
 }
+
+function ExportToGoogleDocsButton({ markdown }: { markdown: string }) {
+  const exportFn = useServerFn(exportToGoogleDocs);
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [url, setUrl] = useState<string>("");
+  const [err, setErr] = useState<string>("");
+
+  const onClick = async () => {
+    setState("loading");
+    setErr("");
+    try {
+      const res = await exportFn({ data: { markdown } });
+      setUrl(res.url);
+      setState("done");
+    } catch (e) {
+      console.error(e);
+      setErr(e instanceof Error ? e.message : "Export failed.");
+      setState("error");
+    }
+  };
+
+  if (state === "done" && url) {
+    return (
+      <div className="rounded-xl border border-mint/30 bg-mint/5 px-3 py-2 text-sm flex items-center gap-2 flex-wrap">
+        <Check className="w-4 h-4 text-mint shrink-0" />
+        <span className="text-foreground">Your research document is ready.</span>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-mint hover:underline font-medium"
+        >
+          Click here to view and download as PDF
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={state === "loading"}
+        className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-md bg-muted hover:bg-accent text-foreground border border-border transition disabled:opacity-60"
+      >
+        {state === "loading" ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <FileText className="w-3.5 h-3.5" />
+        )}
+        {state === "loading" ? "Exporting…" : "Export to Google Docs"}
+      </button>
+      {state === "error" && <span className="text-[11px] text-destructive">{err}</span>}
+    </div>
+  );
+}
+
