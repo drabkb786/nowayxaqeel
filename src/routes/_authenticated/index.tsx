@@ -775,7 +775,7 @@ function SingleChat({
             <div className="flex items-start gap-3">
               <AiAvatar />
               <div className="text-sm text-muted-foreground animate-pulse pt-1.5">
-                {imgBusy ? "Generating…" : "Thinking…"}
+                {pdfStatus ?? (imgBusy ? "Generating…" : "Thinking…")}
               </div>
             </div>
           )}
