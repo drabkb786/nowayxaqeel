@@ -240,12 +240,12 @@ function ChatPage() {
     <div className="h-screen bg-background text-foreground flex overflow-hidden">
       {/* Sidebar — always dark themed (ChatGPT style) */}
       <aside
-        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 ${sidebarWidth} bg-sidebar text-white/90 border-r border-white/5 flex flex-col transition-all duration-300 ease-out`}
+        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 ${sidebarWidth} bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-all duration-300 ease-out`}
       >
         <div className="p-3 flex items-center gap-2">
           <button
             onClick={() => setSidebarCollapsed((v) => !v)}
-            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg hover:bg-white/5 text-white/70 shrink-0"
+            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg hover:bg-sidebar-accent/40 text-sidebar-foreground/70 shrink-0"
             aria-label="Collapse sidebar"
             title="Toggle sidebar"
           >
@@ -255,12 +255,12 @@ function ChatPage() {
             <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center font-bold text-black text-sm">N</div>
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">Noway Chat</div>
-              <div className="text-[10px] text-white/40">GPT · Gemini</div>
+              <div className="text-[10px] text-sidebar-foreground/40">GPT · Gemini</div>
             </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5"
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/40"
             aria-label="Close sidebar"
           >
             <X className="w-4 h-4" />
@@ -270,20 +270,20 @@ function ChatPage() {
         <div className="px-3">
           <button
             onClick={createThread}
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 transition ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-sidebar-accent/50 hover:bg-sidebar-accent border border-sidebar-border transition ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
           >
             <Plus className="w-4 h-4 shrink-0" />
             <span className={sidebarCollapsed ? "lg:hidden" : ""}>New chat</span>
           </button>
         </div>
 
-        <div className={`px-3 pt-4 pb-1 text-[10px] tracking-widest uppercase text-white/30 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+        <div className={`px-3 pt-4 pb-1 text-[10px] tracking-widest uppercase text-sidebar-foreground/30 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           Recent
         </div>
 
         <div className={`flex-1 overflow-y-auto px-2 space-y-0.5 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           {threads.slice().sort((a, b) => b.updatedAt - a.updatedAt).map((t) => (
-            <div key={t.id} className={`group flex items-center gap-1 rounded-lg transition ${t.id === activeId ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"}`}>
+            <div key={t.id} className={`group flex items-center gap-1 rounded-lg transition ${t.id === activeId ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/40"}`}>
               <button
                 onClick={() => { setActiveId(t.id); setSidebarOpen(false); }}
                 className="flex-1 text-left px-3 py-2 text-sm truncate"
@@ -292,7 +292,7 @@ function ChatPage() {
               </button>
               <button
                 onClick={() => deleteThread(t.id)}
-                className="opacity-0 group-hover:opacity-100 px-2 py-2 text-white/40 hover:text-red-400 transition"
+                className="opacity-0 group-hover:opacity-100 px-2 py-2 text-sidebar-foreground/40 hover:text-red-400 transition"
                 aria-label="Delete"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -301,19 +301,19 @@ function ChatPage() {
           ))}
         </div>
 
-        <div className="p-3 border-t border-white/5 space-y-2">
+        <div className="p-3 border-t border-sidebar-border space-y-2">
           <div className={`flex items-center gap-2 ${sidebarCollapsed ? "lg:justify-center" : ""}`}>
             <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-mint to-mint-glow flex items-center justify-center text-black text-sm font-bold">
               {username.slice(0, 1).toUpperCase()}
             </div>
             <div className={`min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-              <div className="text-sm text-white/90 truncate">@{username}</div>
-              <div className="text-[10px] text-white/40">Signed in</div>
+              <div className="text-sm text-sidebar-foreground truncate">@{username}</div>
+              <div className="text-[10px] text-sidebar-foreground/40">Signed in</div>
             </div>
             <button
               onClick={signOut}
               title="Sign out"
-              className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 text-white/60 hover:text-white ${sidebarCollapsed ? "lg:hidden" : ""}`}
+              className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/40 text-sidebar-foreground/60 hover:text-sidebar-foreground ${sidebarCollapsed ? "lg:hidden" : ""}`}
               aria-label="Sign out"
             >
               <LogOut className="w-4 h-4" />
@@ -321,7 +321,7 @@ function ChatPage() {
           </div>
           <Link
             to="/id"
-            className={`block text-[11px] text-white/40 hover:text-white/70 px-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}
+            className={`block text-[11px] text-sidebar-foreground/40 hover:text-sidebar-foreground/70 px-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}
           >
             → ID Generator
           </Link>
