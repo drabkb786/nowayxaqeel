@@ -272,7 +272,9 @@ function SingleChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { onMessagesChange(messages); }, [messages, onMessagesChange]);
+  const onMsgRef = useRef(onMessagesChange);
+  useEffect(() => { onMsgRef.current = onMessagesChange; });
+  useEffect(() => { onMsgRef.current(messages); }, [messages]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
 
@@ -393,14 +395,15 @@ function CompareView({
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const onMsgRef = useRef(onMessagesChange);
+  useEffect(() => { onMsgRef.current = onMessagesChange; });
   useEffect(() => {
-    // Persist as merged messages
     const merged: UIMessage[] = pairs.flatMap((p, i) => [
       { id: `u${i}`, role: "user" as const, parts: [{ type: "text" as const, text: p.user }] },
       { id: `a${i}`, role: "assistant" as const, parts: [{ type: "text" as const, text: `${p.a}\n---COMPARE---\n${p.b}` }] },
     ]);
-    onMessagesChange(merged);
-  }, [pairs, onMessagesChange]);
+    onMsgRef.current(merged);
+  }, [pairs]);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [pairs, loading]);
 
