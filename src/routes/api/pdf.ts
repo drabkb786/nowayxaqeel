@@ -52,17 +52,21 @@ function mapFont(name?: string): "Helvetica" | "Times" | "Courier" {
 }
 
 async function callLLMJson(prompt: string, model: string, key: string): Promise<Doc> {
+  const isOpenAI = model.startsWith("openai/");
+  const body: Record<string, unknown> = {
+    model,
+    messages: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+  };
+  if (isOpenAI) body.service_tier = "priority";
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(60_000),
   });
   if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
@@ -83,6 +87,7 @@ async function generateImage(prompt: string, key: string): Promise<Uint8Array | 
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),
+      signal: AbortSignal.timeout(40_000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as {
@@ -337,13 +342,20 @@ export const Route = createFileRoute("/api/pdf")({
           const key = process.env.LOVABLE_API_KEY;
           if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
 
-          const chosenModel = model || "openai/gpt-5.5";
+          const chosenModel = model || "google/gemini-3-flash-preview";
           const userPrompt = font
             ? `${prompt}\n\n(Preferred font family: ${font})`
             : prompt;
 
           const doc = await callLLMJson(userPrompt, chosenModel, key);
           if (font && !doc.font) doc.font = font;
+          // Cap image blocks to at most 2 to keep total time under the CF 100s limit.
+          let imgCount = 0;
+          doc.blocks = doc.blocks.filter((b) => {
+            if (b.type !== "image") return true;
+            imgCount++;
+            return imgCount <= 2;
+          });
           const bytes = await renderPdf(doc, key);
           const b64 = Buffer.from(bytes).toString("base64");
           const filename = (doc.title || "document")
