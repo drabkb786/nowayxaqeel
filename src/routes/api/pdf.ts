@@ -16,24 +16,22 @@ const SYSTEM = `You are an expert document layout assistant. Return ONLY a JSON 
   "title": "Main document title",
   "font": "Helvetica" | "Times" | "Courier",
   "blocks": [
-    {"type":"h1","text":"..."},
-    {"type":"h2","text":"..."},
-    {"type":"h3","text":"..."},
-    {"type":"p","runs":[{"text":"...","bold":true},{"text":"..."},{"text":"...","italic":true}]},
-    {"type":"ul","items":["...","..."]},
-    {"type":"ol","items":["...","..."]}
+    {"type":"h2","text":"Section heading"},
+    {"type":"h3","text":"Sub-section"},
+    {"type":"p","runs":[{"text":"Normal "},{"text":"bold","bold":true},{"text":" and "},{"text":"italic","italic":true},{"text":" text."}]},
+    {"type":"ul","items":["bullet one","bullet two"]},
+    {"type":"ol","items":["step one","step two"]}
   ]
 }
 
 Rules:
-- Never include raw markdown (#, ##, **, *, _). Convert emphasis into run.bold / run.italic.
-- Use h1 ONCE for the document title area (or set title only; h1 optional in blocks).
+- Never emit raw markdown symbols (#, ##, **, *, _, -) in any text field. Convert emphasis into run.bold / run.italic.
+- The document TITLE goes in the top-level "title" field ONLY — do NOT repeat it as an h1 block. Never use "h1" in blocks.
 - Use h2 for major sections, h3 for sub-sections.
-- Use ul for bullet lists, ol for numbered lists — never hyphens in paragraphs.
-- Split paragraphs into runs when emphasis changes.
-- Keep it professional and cleanly structured for the requested topic.
-- If user asks for a specific font (Arial, Roboto, Times New Roman, Courier), map:
-  Arial/Roboto/Helvetica → "Helvetica"; Times/"Times New Roman"/serif → "Times"; Courier/mono → "Courier".`;
+- Use ul for bullet lists, ol for numbered lists — never inline hyphens or "•".
+- Split a paragraph into multiple runs whenever emphasis (bold/italic) changes.
+- Produce enough substantial content to fully answer the user's request; do not stop at a stub.
+- Font mapping: Arial/Roboto/Helvetica/sans-serif → "Helvetica"; Times/"Times New Roman"/serif → "Times"; Courier/mono → "Courier".`;
 
 function mapFont(name?: string): "Helvetica" | "Times" | "Courier" {
   const n = (name || "").toLowerCase();
