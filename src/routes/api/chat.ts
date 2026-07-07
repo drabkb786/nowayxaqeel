@@ -21,6 +21,8 @@ const URL_REGEX = /\bhttps?:\/\/[^\s<>"'`)]+/gi;
 const MAX_URLS = 4;
 const PER_URL_CHARS = 8000;
 const TRANSCRIPT_CHAR_LIMIT = 24000;
+const TRANSCRIPT_WAIT_MS = 25_000;
+const FIRECRAWL_WAIT_MS = 18_000;
 
 const YT_HOST_RE = /^(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)$/i;
 
@@ -52,6 +54,18 @@ function formatTimestamp(seconds: number): string {
   const sec = s % 60;
   const pad = (n: number) => String(n).padStart(2, "0");
   return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
+
+function withWaitLimit<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    work.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    new Promise<T>((resolve) => {
+      timer = setTimeout(() => resolve(fallback), ms);
+    }),
+  ]);
 }
 
 async function fetchYouTubeTranscript(videoId: string) {
@@ -91,6 +105,13 @@ async function fetchYouTubeTranscript(videoId: string) {
   }
 }
 
+function fetchYouTubeTranscriptWithLimit(videoId: string) {
+  return withWaitLimit(fetchYouTubeTranscript(videoId), TRANSCRIPT_WAIT_MS, {
+    ok: false as const,
+    error: "Transcript fetch took too long.",
+  });
+}
+
 function extractLatestUserText(messages: UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
@@ -115,9 +136,12 @@ function extractUrls(text: string): string[] {
 }
 
 async function firecrawlScrape(apiKey: string, url: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FIRECRAWL_WAIT_MS);
   try {
     const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
       method: "POST",
+      signal: controller.signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -142,6 +166,8 @@ async function firecrawlScrape(apiKey: string, url: string) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { url, ok: false as const, error: msg };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -177,7 +203,7 @@ export const Route = createFileRoute("/api/chat")({
         // YouTube transcripts → Video Analyst context
         if (ytEntries.length > 0) {
           const results = await Promise.all(
-            ytEntries.map(async (e) => ({ ...e, res: await fetchYouTubeTranscript(e.videoId) })),
+            ytEntries.map(async (e) => ({ ...e, res: await fetchYouTubeTranscriptWithLimit(e.videoId) })),
           );
           const blocks: string[] = [];
           let anyOk = false;
