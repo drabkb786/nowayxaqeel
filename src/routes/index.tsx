@@ -70,6 +70,10 @@ function textOf(m: UIMessage): string {
   return (m.parts ?? []).map((p) => (p.type === "text" ? p.text : "")).join("");
 }
 
+function messagesSignature(messages: UIMessage[]): string {
+  return JSON.stringify(messages.map((m) => ({ id: m.id, role: m.role, parts: m.parts })));
+}
+
 function ChatPage() {
   const [mounted, setMounted] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -105,15 +109,20 @@ function ChatPage() {
   const active = useMemo(() => threads.find((t) => t.id === activeId), [threads, activeId]);
 
   const persistMessages = (id: string, messages: UIMessage[]) => {
+    const incomingSignature = messagesSignature(messages);
     setThreads((prev) => {
+      let changed = false;
       const next = prev.map((t) => {
         if (t.id !== id) return t;
+        if (messagesSignature(t.messages) === incomingSignature) return t;
+        changed = true;
         const firstUser = messages.find((m) => m.role === "user");
         const title = t.title === "New chat" && firstUser
           ? textOf(firstUser).slice(0, 40) || "New chat"
           : t.title;
         return { ...t, messages, updatedAt: Date.now(), title };
       });
+      if (!changed) return prev;
       saveThreads(next);
       return next;
     });
@@ -300,8 +309,14 @@ function SingleChat({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const onMsgRef = useRef(onMessagesChange);
+  const lastSyncedMessagesRef = useRef("");
   useEffect(() => { onMsgRef.current = onMessagesChange; });
-  useEffect(() => { onMsgRef.current(messages); }, [messages]);
+  useEffect(() => {
+    const signature = messagesSignature(messages);
+    if (signature === lastSyncedMessagesRef.current) return;
+    lastSyncedMessagesRef.current = signature;
+    onMsgRef.current(messages);
+  }, [messages]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy, pending]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
   // Note: blob URLs used by confirmed messages must NOT be auto-revoked;
@@ -550,12 +565,16 @@ function CompareView({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const onMsgRef = useRef(onMessagesChange);
+  const lastSyncedMessagesRef = useRef("");
   useEffect(() => { onMsgRef.current = onMessagesChange; });
   useEffect(() => {
     const merged: UIMessage[] = pairs.flatMap((p, i) => [
       { id: `u${i}`, role: "user" as const, parts: [{ type: "text" as const, text: p.user }] },
       { id: `a${i}`, role: "assistant" as const, parts: [{ type: "text" as const, text: `${p.a}\n---COMPARE---\n${p.b}` }] },
     ]);
+    const signature = messagesSignature(merged);
+    if (signature === lastSyncedMessagesRef.current) return;
+    lastSyncedMessagesRef.current = signature;
     onMsgRef.current(merged);
   }, [pairs]);
 
