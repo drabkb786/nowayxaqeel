@@ -675,18 +675,23 @@ function SingleChat({
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {messages.length === 0 && (
-            <div className="pt-10 sm:pt-16 pb-8 animate-in fade-in duration-500">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mint/10 border border-mint/30 text-mint text-[11px] tracking-widest uppercase font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-mint animate-pulse" />
-                NOWAYxAQEEL · Online
+            <div className="pt-10 sm:pt-16 pb-8 animate-in fade-in duration-700">
+              <div className="flex items-center gap-3">
+                <span className="h-px w-10 bg-gradient-to-r from-transparent via-mint to-transparent" />
+                <div className="inline-flex items-center gap-2 text-[10px] tracking-[0.3em] uppercase font-semibold text-mint/90">
+                  <span className="w-1.5 h-1.5 rounded-full bg-mint shadow-[0_0_10px_currentColor] animate-pulse" />
+                  System Online · Neural Core v5.5
+                </div>
               </div>
-              <h1 className="mt-5 font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[0.95] bg-gradient-to-br from-mint via-primary to-mint-glow bg-clip-text text-transparent">
-                Hello, @{username}
+              <h1 className="mt-6 font-serif text-6xl sm:text-7xl md:text-8xl font-normal tracking-tight leading-[0.9] text-foreground">
+                Good to see you,
+                <br />
+                <span className="italic aurora-text">@{username}</span>
               </h1>
-              <p className="mt-3 text-xl sm:text-2xl md:text-3xl font-display font-medium tracking-tight text-muted-foreground">
-                Aaj kya banayenge?
+              <p className="mt-5 text-lg sm:text-xl text-muted-foreground max-w-xl font-light leading-relaxed">
+                Your intelligent workspace is primed. Ask anything, generate images or PDFs, compare models, or dive into deep research.
               </p>
-              <div className="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
+              <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
                 {SUGGESTIONS.map((s, i) => {
                   const Icon = s.icon;
                   const spans = [
@@ -695,20 +700,43 @@ function SingleChat({
                     "col-span-1 lg:col-span-1",
                     "col-span-1 lg:col-span-1",
                   ];
+                  const tints = [
+                    { glow: "bg-mint/20", ring: "hover:border-mint/40", icoBg: "bg-mint/15 border-mint/30", ico: "text-mint" },
+                    { glow: "bg-iris/20", ring: "hover:border-iris/40", icoBg: "bg-iris/15 border-iris/30", ico: "text-iris" },
+                    { glow: "bg-violet/20", ring: "hover:border-violet/40", icoBg: "bg-violet/15 border-violet/30", ico: "text-violet" },
+                    { glow: "bg-mint/20", ring: "hover:border-mint/40", icoBg: "bg-mint/15 border-mint/30", ico: "text-mint" },
+                  ];
+                  const t = tints[i] ?? tints[0];
+                  const isHero = i === 0;
                   return (
                     <button
                       key={s.title}
                       type="button"
                       onClick={() => onSuggestion(s.prompt)}
-                      className={`group relative overflow-hidden text-left bento-card p-5 hover:mint-glow hover:-translate-y-0.5 transition-all duration-300 ${spans[i] ?? ""}`}
+                      className={`group relative overflow-hidden text-left bento-card p-6 transition-all duration-500 hover:-translate-y-1 ${t.ring} ${spans[i] ?? ""}`}
                     >
-                      <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-mint/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className={`absolute -top-12 -right-12 w-40 h-40 rounded-full ${t.glow} blur-[60px] opacity-40 group-hover:opacity-100 transition-opacity duration-700`} />
                       <div className="relative flex flex-col h-full min-h-[7rem] justify-between gap-6">
-                        <div className="w-10 h-10 rounded-xl bg-mint/15 border border-mint/25 flex items-center justify-center text-mint">
-                          <Icon className="w-5 h-5" />
+                        <div className="flex items-start justify-between">
+                          <div className={`w-11 h-11 rounded-2xl border ${t.icoBg} flex items-center justify-center ${t.ico} group-hover:scale-110 transition-transform duration-500`}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div className="w-7 h-7 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-300">
+                            <ArrowUp className="w-3.5 h-3.5 rotate-45" />
+                          </div>
                         </div>
-                        <div className="font-display text-base sm:text-lg font-medium text-foreground leading-snug">
-                          {s.title}
+                        <div>
+                          {isHero && (
+                            <div className="mb-2 text-[10px] tracking-[0.25em] uppercase font-semibold text-mint/80">Featured</div>
+                          )}
+                          <div className={`font-display font-medium text-foreground leading-snug ${isHero ? "text-xl sm:text-2xl" : "text-base"}`}>
+                            {s.title}
+                          </div>
+                          {isHero && (
+                            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                              Curated prompt — one click to start. Optimised for {s.title.toLowerCase()}.
+                            </p>
+                          )}
                         </div>
                       </div>
                     </button>
