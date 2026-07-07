@@ -1,18 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Stripe UPI Pay Link",
-  "description": "Create a Stripe checkout link from the signed-in ChatGPT session in this browser.",
-  "version": "1.1.0",
+  "name": "Noway",
+  "description": "Noway — generate a ChatGPT checkout link from your signed-in session. Created by Noway.",
+  "version": "1.2.0",
   "permissions": [
     "clipboardWrite",
-    "cookies"
+    "cookies",
+    "storage"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://*.chatgpt.com/*"
   ],
   "action": {
-    "default_title": "Get Stripe UPI Pay Link",
+    "default_title": "Noway",
     "default_popup": "popup.html"
   },
   "background": {
