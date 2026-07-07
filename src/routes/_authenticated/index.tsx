@@ -227,12 +227,25 @@ function ChatPage() {
             </div>
           ))}
         </div>
-        <div className="p-3 border-t border-white/5">
-          <Link to="/id" className="text-[10px] text-white/40 hover:text-white/70 tracking-widest uppercase">
+        <div className="p-3 border-t border-white/5 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[10px] tracking-widest uppercase text-white/30">Signed in</div>
+              <div className="text-xs text-white/80 truncate">@{username}</div>
+            </div>
+            <button
+              onClick={signOut}
+              className="text-[10px] tracking-widest uppercase px-2 py-1 rounded-md border border-white/10 text-white/60 hover:text-white hover:bg-white/5"
+            >
+              Sign out
+            </button>
+          </div>
+          <Link to="/id" className="block text-[10px] text-white/40 hover:text-white/70 tracking-widest uppercase">
             → ID Generator
           </Link>
         </div>
       </aside>
+
 
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0">
