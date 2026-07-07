@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
-import { YoutubeTranscript } from "youtube-transcript";
 
 type Body = {
   messages?: UIMessage[];
