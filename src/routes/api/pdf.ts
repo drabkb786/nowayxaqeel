@@ -167,17 +167,17 @@ async function renderPdf(doc: Doc): Promise<Uint8Array> {
     y -= 14;
   }
 
-  const drawRuns = async (runs: Run[], size = 11, indent = 0) => {
-    const spaceW = (await fonts.regular).widthOfTextAtSize(" ", size);
+  const drawRuns = (runs: Run[], size = 11, indent = 0) => {
+    const spaceW = fonts.regular.widthOfTextAtSize(" ", size);
     let cx = MARGIN + indent;
     ensureSpace(size + 4);
     let lineTop = y;
     const maxX = PAGE_W - MARGIN;
     for (const run of runs) {
-      const font = await (run.bold && run.italic ? fonts.boldItalic
+      const font: PDFFont = run.bold && run.italic ? fonts.boldItalic
         : run.bold ? fonts.bold
         : run.italic ? fonts.italic
-        : fonts.regular);
+        : fonts.regular;
       const words = clean(run.text).split(/(\s+)/);
       for (const chunk of words) {
         if (!chunk) continue;
