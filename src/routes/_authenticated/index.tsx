@@ -499,6 +499,7 @@ function SingleChat({
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imgErr, setImgErr] = useState<string | null>(null);
+  const [pdfStatus, setPdfStatus] = useState<string | null>(null);
 
   const [pending, setPending] = useState<{
     prompt: string;
