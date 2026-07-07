@@ -847,7 +847,7 @@ function SingleChat({
             )}
           </div>
           <div className="mt-2 text-center text-[10px] text-muted-foreground">
-            Noway can make mistakes. Verify important info.
+            NOWAYxAQEEL GPT can make mistakes. Verify important info.
           </div>
         </div>
       </form>
