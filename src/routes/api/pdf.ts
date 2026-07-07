@@ -64,28 +64,28 @@ async function callLLMJson(prompt: string, model: string, key: string): Promise<
   return parsed;
 }
 
-function pickFonts(pdf: PDFDocument, family: "Helvetica" | "Times" | "Courier") {
+async function pickFonts(pdf: PDFDocument, family: "Helvetica" | "Times" | "Courier") {
   if (family === "Times") {
     return {
-      regular: pdf.embedStandardFont(StandardFonts.TimesRoman),
-      bold: pdf.embedStandardFont(StandardFonts.TimesRomanBold),
-      italic: pdf.embedStandardFont(StandardFonts.TimesRomanItalic),
-      boldItalic: pdf.embedStandardFont(StandardFonts.TimesRomanBoldItalic),
+      regular: await pdf.embedFont(StandardFonts.TimesRoman),
+      bold: await pdf.embedFont(StandardFonts.TimesRomanBold),
+      italic: await pdf.embedFont(StandardFonts.TimesRomanItalic),
+      boldItalic: await pdf.embedFont(StandardFonts.TimesRomanBoldItalic),
     };
   }
   if (family === "Courier") {
     return {
-      regular: pdf.embedStandardFont(StandardFonts.Courier),
-      bold: pdf.embedStandardFont(StandardFonts.CourierBold),
-      italic: pdf.embedStandardFont(StandardFonts.CourierOblique),
-      boldItalic: pdf.embedStandardFont(StandardFonts.CourierBoldOblique),
+      regular: await pdf.embedFont(StandardFonts.Courier),
+      bold: await pdf.embedFont(StandardFonts.CourierBold),
+      italic: await pdf.embedFont(StandardFonts.CourierOblique),
+      boldItalic: await pdf.embedFont(StandardFonts.CourierBoldOblique),
     };
   }
   return {
-    regular: pdf.embedStandardFont(StandardFonts.Helvetica),
-    bold: pdf.embedStandardFont(StandardFonts.HelveticaBold),
-    italic: pdf.embedStandardFont(StandardFonts.HelveticaOblique),
-    boldItalic: pdf.embedStandardFont(StandardFonts.HelveticaBoldOblique),
+    regular: await pdf.embedFont(StandardFonts.Helvetica),
+    bold: await pdf.embedFont(StandardFonts.HelveticaBold),
+    italic: await pdf.embedFont(StandardFonts.HelveticaOblique),
+    boldItalic: await pdf.embedFont(StandardFonts.HelveticaBoldOblique),
   };
 }
 
