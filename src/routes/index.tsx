@@ -3,6 +3,8 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -719,7 +721,8 @@ function ComparePanel({ label, text, error, loading }: { label: string; text: st
       {error && <div className="text-xs text-red-400">{error}</div>}
       {text && (
         <div className="prose prose-sm prose-invert max-w-none text-sm">
-          <ReactMarkdown>{text}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+
         </div>
       )}
     </div>
@@ -775,7 +778,7 @@ function MessageBubble({ m }: { m: UIMessage }) {
       ))}
       {text && (
         <div className="prose prose-sm prose-invert max-w-none text-[15px] leading-relaxed">
-          <ReactMarkdown>{text}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
         </div>
       )}
     </div>
