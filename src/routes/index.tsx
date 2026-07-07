@@ -721,6 +721,13 @@ function MessageBubble({ m }: { m: UIMessage }) {
               ⬇ Download PNG
             </a>
           </div>
+        ) : f.mediaType === "application/pdf" ? (
+          <div key={i} className="space-y-2">
+            <iframe src={f.url} title={f.filename ?? "pdf"} className="w-full h-[60vh] rounded-xl border border-white/10 bg-white" />
+            <a href={f.url} download={f.filename ?? "document.pdf"} className="inline-block text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70">
+              ⬇ Download PDF · {f.filename}
+            </a>
+          </div>
         ) : (
           <div key={i} className="text-xs text-white/60">📎 {f.filename}</div>
         )
