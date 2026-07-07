@@ -326,7 +326,7 @@ function SingleChat({
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: mediaType || "image/png" });
       const url = URL.createObjectURL(blob);
-      setPending({ prompt, url, mediaType: mediaType || "image/png" });
+      setPending({ prompt, url, mediaType: mediaType || "image/png", kind: "image", filename: "generated.png" });
     } catch (e) {
       setImgErr(e instanceof Error ? e.message : String(e));
     } finally {
