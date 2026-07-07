@@ -86,7 +86,6 @@ async function generateImage(prompt: string, key: string): Promise<Uint8Array | 
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),
-      signal: AbortSignal.timeout(40_000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as {
