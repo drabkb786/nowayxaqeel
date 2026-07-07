@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { COUNTRIES } from "@/lib/countries";
 import { generateIdentity, type Identity } from "@/lib/generator";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/id")({
   head: () => ({
     meta: [
       { title: "Noway ID — Fake Identity & Address Generator (250+ Countries)" },
