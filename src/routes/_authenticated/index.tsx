@@ -779,7 +779,7 @@ function SingleChat({
                 value={depth}
                 onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
                 title="Response depth"
-                className="hidden text-xs bg-background/60 hover:bg-background border border-border rounded-full px-3 py-1.5 outline-none cursor-pointer text-foreground self-center shrink-0"
+                className="hidden md:block text-xs bg-background/60 hover:bg-background border border-border rounded-full px-3 py-1.5 outline-none cursor-pointer text-foreground self-center shrink-0"
               >
                 <option value="standard">Standard</option>
                 <option value="extended">Extended</option>
