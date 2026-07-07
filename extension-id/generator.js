@@ -44,7 +44,7 @@ function generateCard() {
   const number = body + check;
   const formatted = b.type === "Amex"
     ? `${number.slice(0, 4)} ${number.slice(4, 10)} ${number.slice(10)}`
-    .match(/.{1,4}/g).join(" ");
+    : number.match(/.{1,4}/g).join(" ");
   const cvv = b.type === "Amex" ? String(randInt(1000, 9999)) : String(randInt(100, 999));
   const mm = String(randInt(1, 12)).padStart(2, "0");
   const yy = String(randInt(26, 32));
@@ -110,4 +110,3 @@ function generateIdentity(countryCode) {
 }
 
 window.generateIdentity = generateIdentity;
-window.COUNTRIES_REF = COUNTRIES;
