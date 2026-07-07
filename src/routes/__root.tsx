@@ -79,15 +79,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "NOWAYxAQEEL GPT — Multi-Model AI Chat" },
+      { title: "NOWAYxAQEEL GPT" },
       { name: "description", content: "Sign in and chat with GPT and Gemini side-by-side. Your history stays synced across devices." },
       { name: "author", content: "NOWAYxAQEEL GPT" },
       { property: "og:title", content: "NOWAYxAQEEL GPT" },
-      { property: "og:description", content: "Multi-model AI chat with cloud-saved history." },
+      { property: "og:description", content: "Sign in and chat with GPT and Gemini side-by-side. Your history stays synced across devices." },
 
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "NOWAYxAQEEL GPT" },
+      { name: "twitter:description", content: "Sign in and chat with GPT and Gemini side-by-side. Your history stays synced across devices." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/a5771b27-4f2d-4e58-9431-3b9cdf3cde6d" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/a5771b27-4f2d-4e58-9431-3b9cdf3cde6d" },
     ],
     links: [
       {
