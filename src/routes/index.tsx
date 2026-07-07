@@ -1,75 +1,174 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { COUNTRIES } from "@/lib/countries";
+import { generateIdentity, type Identity } from "@/lib/generator";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Noway — Chrome Extension" },
-      { name: "description", content: "Noway generates a ChatGPT checkout link from your signed-in session, with promo region selection across 150+ countries." },
+      { title: "Noway ID — Fake Identity & Address Generator (250+ Countries)" },
+      { name: "description", content: "Generate realistic fake identities with address, postal code, phone, email, and test card details for 250+ countries. For developers, testing and QA." },
+      { property: "og:title", content: "Noway ID — Fake Identity Generator" },
+      { property: "og:description", content: "Realistic fake names, addresses, postal codes, phones, emails and test cards for 250+ countries." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: Index,
+  component: Page,
 });
 
-function Index() {
-  const download = () => {
-    fetch("/noway.zip")
-      .then((r) => { if (!r.ok) throw new Error("Download failed"); return r.blob(); })
-      .then((blob) => {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "noway.zip";
-        a.click();
-        URL.revokeObjectURL(a.href);
-      })
-      .catch((err) => alert(err.message));
+function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
   };
+  return (
+    <button
+      onClick={copy}
+      className="group text-left w-full rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20 transition p-4"
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-[10px] tracking-[0.18em] uppercase text-white/40 font-medium">{label}</div>
+        <div className="text-[10px] text-white/30 group-hover:text-emerald-400 transition">
+          {copied ? "COPIED" : "COPY"}
+        </div>
+      </div>
+      <div className={`text-white/95 break-words ${mono ? "font-mono text-sm" : "text-[15px]"}`}>{value || "—"}</div>
+    </button>
+  );
+}
+
+function Page() {
+  const [countryCode, setCountryCode] = useState<string>("");
+  const [identity, setIdentity] = useState<Identity>(() => generateIdentity("US"));
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return COUNTRIES;
+    return COUNTRIES.filter((c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q));
+  }, [search]);
+
+  const regen = (code?: string) => setIdentity(generateIdentity(code ?? countryCode ?? undefined));
 
   return (
-    <div className="min-h-screen bg-[#08070d] text-white relative overflow-hidden">
-      <div
-        aria-hidden
-        className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full blur-3xl opacity-60 pointer-events-none"
-        style={{ background: "radial-gradient(circle, #6d5cff 0%, transparent 60%)" }}
-      />
-      <div className="relative max-w-3xl mx-auto px-6 py-24">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.04] backdrop-blur text-[11px] tracking-[0.2em] uppercase text-white/70 font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#7cf0b8] shadow-[0_0_8px_#7cf0b8]" />
-          Chrome Extension · v1.2.0
-        </div>
-        <h1 className="mt-6 text-6xl font-bold tracking-tight leading-[1.05]">
-          No<span className="bg-gradient-to-r from-[#b794ff] to-[#6d5cff] bg-clip-text text-transparent">way</span>
+    <div className="min-h-screen bg-[#0a0912] text-white relative overflow-hidden">
+      {/* Ambient background */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full blur-3xl opacity-40" style={{ background: "radial-gradient(circle, #a56bff, transparent 60%)" }} />
+        <div className="absolute top-1/3 -right-40 w-[500px] h-[500px] rounded-full blur-3xl opacity-30" style={{ background: "radial-gradient(circle, #22d3ee, transparent 60%)" }} />
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.4) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+      </div>
+
+      <div className="relative max-w-6xl mx-auto px-6 py-14">
+        {/* Header */}
+        <header className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#a56bff] to-[#6d5cff] flex items-center justify-center font-bold text-black text-sm shadow-[0_8px_24px_-6px_rgba(165,107,255,0.6)]">N</div>
+            <div>
+              <div className="font-bold text-lg leading-none">Noway ID</div>
+              <div className="text-[11px] text-white/40 mt-0.5">Fake identity generator</div>
+            </div>
+          </div>
+          <div className="text-[11px] font-mono tracking-widest text-white/40 uppercase hidden sm:block">
+            250+ Countries · For Testing
+          </div>
+        </header>
+
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] max-w-3xl">
+          Generate a full <span className="bg-gradient-to-r from-[#a56bff] to-[#22d3ee] bg-clip-text text-transparent">fake identity</span> for any country
         </h1>
-        <p className="mt-5 text-lg text-white/60 max-w-xl leading-relaxed">
-          Generate a ChatGPT checkout link from your signed-in session — pick a promo
-          region from 150+ countries and get a copy-ready URL in one click.
+        <p className="mt-4 text-white/60 max-w-2xl">
+          Name, address, postal code, phone, email, DOB and test card — all realistically formatted for the country you choose. Great for QA, form testing and mock data.
         </p>
 
-        <div className="mt-10 flex gap-3 flex-wrap">
-          <button
-            onClick={download}
-            className="px-7 py-3.5 rounded-full font-semibold text-black bg-gradient-to-r from-[#b794ff] to-[#6d5cff] shadow-[0_16px_40px_-12px_rgba(140,108,255,0.7)] hover:-translate-y-0.5 transition"
+        {/* Controls */}
+        <div className="mt-8 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <input
+            type="text"
+            placeholder="Search country…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-white/[0.03] border border-white/10 focus:border-white/30 focus:bg-white/[0.05] outline-none text-sm placeholder:text-white/30"
+          />
+          <select
+            value={countryCode}
+            onChange={(e) => { setCountryCode(e.target.value); regen(e.target.value); }}
+            className="px-4 py-3 rounded-xl bg-white/[0.03] border border-white/10 focus:border-white/30 outline-none text-sm appearance-none cursor-pointer"
           >
-            Download extension
+            <option value="" className="bg-[#0a0912]">Random country</option>
+            {filtered.map((c) => (
+              <option key={c.code} value={c.code} className="bg-[#0a0912]">{c.name} ({c.code})</option>
+            ))}
+          </select>
+          <button
+            onClick={() => regen()}
+            className="px-6 py-3 rounded-xl font-semibold text-black bg-gradient-to-r from-[#a56bff] to-[#22d3ee] hover:brightness-110 active:scale-[0.98] transition shadow-[0_10px_30px_-10px_rgba(165,107,255,0.6)]"
+          >
+            Generate ↻
           </button>
-          <a href="#install" className="px-7 py-3.5 rounded-full border border-white/15 hover:bg-white/5 transition">
-            How to install
-          </a>
         </div>
 
-        <div id="install" className="mt-16 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur p-8">
-          <div className="text-[11px] font-mono tracking-[0.2em] uppercase text-white/50 mb-3">Install</div>
-          <ol className="space-y-3 text-white/75 list-decimal list-inside">
-            <li>Download the zip above and unzip it.</li>
-            <li>Open <code className="px-2 py-0.5 bg-white/10 rounded font-mono text-sm">chrome://extensions</code>.</li>
-            <li>Enable <strong>Developer mode</strong> (top-right).</li>
-            <li>Click <strong>Load unpacked</strong> and select the unzipped folder.</li>
-            <li>Sign in to <code className="px-2 py-0.5 bg-white/10 rounded font-mono text-sm">chatgpt.com</code>, then click the Noway icon and hit <strong>Generate link</strong>.</li>
-          </ol>
+        {/* Identity flag row */}
+        <div className="mt-8 flex items-center gap-4 p-5 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent">
+          <div className="text-4xl font-mono font-bold text-white/90">{identity.country.code}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xl font-semibold truncate">{identity.fullName}</div>
+            <div className="text-sm text-white/50 truncate">{identity.countryName} · {identity.gender} · {identity.age} yrs</div>
+          </div>
+          <div className="text-right text-[11px] tracking-widest text-white/40 uppercase hidden sm:block">
+            Dial {identity.country.dial}<br/>{identity.currency}
+          </div>
         </div>
 
-        <p className="mt-12 text-center text-[11px] font-mono tracking-[0.2em] uppercase text-white/40">
-          — Created by Noway —
-        </p>
+        {/* Fields grid */}
+        <section className="mt-6">
+          <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/40 mb-3">Personal</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Full Name" value={identity.fullName} />
+            <Field label="First Name" value={identity.firstName} />
+            <Field label="Last Name" value={identity.lastName} />
+            <Field label="Gender" value={identity.gender} />
+            <Field label="Date of Birth" value={`${identity.dob} (age ${identity.age})`} />
+            <Field label="Username" value={identity.username} mono />
+            <Field label="Email" value={identity.email} mono />
+            <Field label="Phone" value={identity.phone} mono />
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/40 mb-3">Address</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Street Address" value={identity.streetAddress} />
+            <Field label="City" value={identity.city} />
+            <Field label="State / Province" value={identity.state} />
+            <Field label="Postal / Zip Code" value={identity.postalCode} mono />
+            <Field label="Country" value={`${identity.countryName} (${identity.country.code})`} />
+            <Field
+              label="Full Address"
+              value={`${identity.streetAddress}, ${identity.city}, ${identity.state} ${identity.postalCode}, ${identity.countryName}`}
+            />
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <h2 className="text-[11px] tracking-[0.2em] uppercase text-white/40 mb-3">Test Card (Luhn-valid · non-chargeable)</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Card Number" value={identity.card.formatted} mono />
+            <Field label="Type" value={identity.card.type} />
+            <Field label="Expiry" value={identity.card.expiry} mono />
+            <Field label="CVV" value={identity.card.cvv} mono />
+          </div>
+          <p className="text-[11px] text-white/30 mt-3 leading-relaxed">
+            Random Luhn-valid numbers only — not linked to any real account and cannot be charged. Use for form validation testing.
+          </p>
+        </section>
+
+        <footer className="mt-16 text-center text-[11px] text-white/30 tracking-widest uppercase">
+          created by noway · fake data for testing only
+        </footer>
       </div>
     </div>
   );
