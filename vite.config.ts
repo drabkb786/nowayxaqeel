@@ -12,4 +12,13 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    // Force pdf-lib + tslib to be bundled by Vite (not treated as external CJS)
+    // so tslib's helpers (__extends, __awaiter, ...) resolve as ESM named imports
+    // on the Cloudflare Worker SSR runtime. Without this the bundler emits a
+    // broken __toESM(require("tslib")).default shim and blows up at runtime.
+    ssr: {
+      noExternal: ["pdf-lib", "tslib"],
+    },
+  },
 });
