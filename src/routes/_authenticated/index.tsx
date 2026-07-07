@@ -497,6 +497,8 @@ function SingleChat({
   const { messages, setMessages, sendMessage, status, error, stop } = useChat({
     id: threadId,
     messages: seedMessages,
+    generateId: () => crypto.randomUUID(),
+    experimental_throttle: 250,
     transport,
   });
 
