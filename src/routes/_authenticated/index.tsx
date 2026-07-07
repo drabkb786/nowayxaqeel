@@ -740,7 +740,7 @@ function SingleChat({
               </button>
             </div>
           )}
-          <div className="flex items-end gap-2 rounded-[28px] border border-border bg-muted/60 backdrop-blur-xl px-2 py-2 shadow-lg shadow-black/5 dark:shadow-black/40 focus-within:border-ring/50 transition-colors">
+          <div className="flex items-end gap-1.5 rounded-[28px] border border-border bg-muted/60 backdrop-blur-xl px-2 py-2 shadow-lg shadow-black/5 dark:shadow-black/40 focus-within:border-ring/50 transition-colors overflow-hidden">
             <label className="cursor-pointer w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-background/60 transition shrink-0" title="Attach image">
               <Paperclip className="w-5 h-5" />
               <input type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
@@ -761,14 +761,14 @@ function SingleChat({
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
               placeholder="Message Noway…"
               rows={1}
-              className="flex-1 bg-transparent resize-none outline-none text-[15px] placeholder:text-muted-foreground max-h-48 py-2.5 px-1 leading-relaxed"
+              className="flex-1 min-w-0 w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground max-h-48 py-2.5 px-2 leading-relaxed"
             />
             {!busy && (
               <select
                 value={depth}
                 onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
                 title="Response depth"
-                className="hidden sm:block text-xs bg-background/60 hover:bg-background border border-border rounded-full px-3 py-1.5 outline-none cursor-pointer text-foreground self-center"
+                className="hidden md:block text-xs bg-background/60 hover:bg-background border border-border rounded-full px-3 py-1.5 outline-none cursor-pointer text-foreground self-center shrink-0"
               >
                 <option value="standard">Standard</option>
                 <option value="extended">Extended</option>
@@ -950,7 +950,7 @@ function CompareView({
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
             placeholder="Prompt for both models…"
             rows={1}
-            className="flex-1 bg-transparent resize-none outline-none text-[15px] placeholder:text-muted-foreground max-h-48 py-2.5 px-3"
+            className="flex-1 min-w-0 w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground max-h-48 py-2.5 px-3"
           />
           <button
             type="submit"
