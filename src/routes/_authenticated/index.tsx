@@ -499,6 +499,7 @@ function SingleChat({
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imgErr, setImgErr] = useState<string | null>(null);
+  const [pdfStatus, setPdfStatus] = useState<string | null>(null);
 
   const [pending, setPending] = useState<{
     prompt: string;
@@ -573,6 +574,19 @@ function SingleChat({
     setImgErr(null);
     if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url);
     setPending(null);
+
+    // Push the user's message into chat immediately (ChatGPT/Gemini style)
+    const userMsg: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: prompt }],
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    setPdfStatus("Analyzing your request…");
+    const t1 = setTimeout(() => setPdfStatus("Drafting your document…"), 900);
+    const t2 = setTimeout(() => setPdfStatus("Formatting and rendering the PDF…"), 2600);
+
     try {
       const res = await fetch("/api/pdf", {
         method: "POST",
@@ -586,10 +600,21 @@ function SingleChat({
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: mediaType || "application/pdf" });
       const url = URL.createObjectURL(blob);
-      setPending({ prompt, url, mediaType: mediaType || "application/pdf", kind: "pdf", filename: filename || "document.pdf" });
+      const asstMsg: UIMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        parts: [
+          { type: "text", text: `Here is your document — **${filename || "document.pdf"}**. Preview it below or download the PDF.` },
+          { type: "file", mediaType: mediaType || "application/pdf", url, filename: filename || "document.pdf" },
+        ],
+      };
+      setMessages((prev) => [...prev, asstMsg]);
     } catch (e) {
       setImgErr(e instanceof Error ? e.message : String(e));
     } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      setPdfStatus(null);
       setImgBusy(false);
     }
   };
@@ -750,7 +775,7 @@ function SingleChat({
             <div className="flex items-start gap-3">
               <AiAvatar />
               <div className="text-sm text-muted-foreground animate-pulse pt-1.5">
-                {imgBusy ? "Generating…" : "Thinking…"}
+                {pdfStatus ?? (imgBusy ? "Generating…" : "Thinking…")}
               </div>
             </div>
           )}
