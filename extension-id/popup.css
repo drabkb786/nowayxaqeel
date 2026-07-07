@@ -1,0 +1,87 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 420px; }
+body {
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  background: #0a0912;
+  color: #fff;
+  font-size: 13px;
+}
+.wrap {
+  padding: 16px;
+  background:
+    radial-gradient(600px 400px at -10% -20%, rgba(165,107,255,.25), transparent 60%),
+    radial-gradient(500px 400px at 110% 30%, rgba(34,211,238,.18), transparent 60%),
+    #0a0912;
+  min-height: 100vh;
+}
+header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.logo {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: linear-gradient(135deg, #a56bff, #6d5cff);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: #000; font-size: 14px;
+  box-shadow: 0 8px 20px -6px rgba(165,107,255,.6);
+}
+.brand { font-weight: 700; font-size: 15px; }
+.sub { font-size: 10px; color: rgba(255,255,255,.4); margin-top: 2px; }
+
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.controls input, .controls select {
+  padding: 9px 10px; border-radius: 9px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.1);
+  color: #fff; font-size: 12px; outline: none;
+}
+.controls input:focus, .controls select:focus { border-color: rgba(255,255,255,.3); }
+.controls button {
+  grid-column: 1 / -1;
+  padding: 10px; border-radius: 9px; border: 0;
+  background: linear-gradient(90deg, #a56bff, #22d3ee);
+  color: #000; font-weight: 700; font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -8px rgba(165,107,255,.6);
+}
+.controls button:hover { filter: brightness(1.1); }
+.controls button:active { transform: scale(.98); }
+
+.hero {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255,255,255,.05), transparent);
+  border: 1px solid rgba(255,255,255,.1);
+  margin-bottom: 12px;
+}
+.hero .code { font-family: ui-monospace, Menlo, monospace; font-weight: 700; font-size: 22px; }
+.hero .info { flex: 1; min-width: 0; }
+.hero .name { font-weight: 600; font-size: 15px; }
+.hero .meta { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 2px; }
+
+section { margin-bottom: 12px; }
+.label {
+  font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(255,255,255,.4); margin-bottom: 6px;
+}
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.field {
+  cursor: pointer; text-align: left;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 9px; padding: 8px 10px;
+  transition: all .15s;
+}
+.field:hover { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.2); }
+.field.wide { grid-column: 1 / -1; }
+.field .k {
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(255,255,255,.4); display: flex; justify-content: space-between;
+}
+.field .k .cp { color: rgba(255,255,255,.25); }
+.field.copied .k .cp { color: #34d399; }
+.field .v { font-size: 12px; margin-top: 3px; word-break: break-word; }
+.field .v.mono { font-family: ui-monospace, Menlo, monospace; }
+
+footer {
+  margin-top: 14px; text-align: center;
+  font-size: 9px; letter-spacing: .2em; text-transform: uppercase;
+  color: rgba(255,255,255,.25);
+}
