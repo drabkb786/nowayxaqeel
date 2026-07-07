@@ -1,12 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchAllThreadsWithMessages,
+  createThreadDb,
+  deleteThreadDb,
+  persistMessagesDb,
+} from "@/lib/chat-store";
 
 
-export const Route = createFileRoute("/")({
+
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Noway Chat — Multi-Model AI Chat (GPT & Gemini)" },
@@ -48,21 +56,11 @@ const extractFont = (text: string): string | undefined => text.match(FONT_RE)?.[
 
 type Thread = { id: string; title: string; updatedAt: number; messages: UIMessage[] };
 
-const LS_THREADS = "noway.chat.threads.v1";
 const LS_ACTIVE = "noway.chat.active.v1";
 const LS_SYSTEM = "noway.chat.system.v1";
 const LS_MODEL_A = "noway.chat.modelA.v1";
 const LS_MODEL_B = "noway.chat.modelB.v1";
 const LS_COMPARE = "noway.chat.compare.v1";
-
-function loadThreads(): Thread[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(LS_THREADS);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-function saveThreads(t: Thread[]) { localStorage.setItem(LS_THREADS, JSON.stringify(t)); }
 
 function newThread(): Thread {
   return { id: crypto.randomUUID(), title: "New chat", updatedAt: Date.now(), messages: [] };
@@ -77,7 +75,10 @@ function messagesSignature(messages: UIMessage[]): string {
 }
 
 function ChatPage() {
+  const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
+  const [userId, setUserId] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const [system, setSystem] = useState("");
@@ -87,19 +88,38 @@ function ChatPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Bootstrap once
+  // Bootstrap: get user + fetch threads from DB
   useEffect(() => {
-    const stored = loadThreads();
-    const list = stored.length ? stored : [newThread()];
-    if (!stored.length) saveThreads(list);
-    setThreads(list);
-    const savedActive = localStorage.getItem(LS_ACTIVE);
-    setActiveId(savedActive && list.find((t) => t.id === savedActive) ? savedActive : list[0].id);
-    setSystem(localStorage.getItem(LS_SYSTEM) ?? "");
-    setModelA(localStorage.getItem(LS_MODEL_A) ?? MODELS[0].id);
-    setModelB(localStorage.getItem(LS_MODEL_B) ?? MODELS[4].id);
-    setCompare(localStorage.getItem(LS_COMPARE) === "1");
-    setMounted(true);
+    let cancelled = false;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return; // gate will redirect
+      if (cancelled) return;
+      setUserId(u.user.id);
+      setUsername(String(u.user.user_metadata?.username ?? u.user.email?.split("@")[0] ?? "user"));
+
+      let list: Thread[] = [];
+      try {
+        list = await fetchAllThreadsWithMessages(u.user.id);
+      } catch (e) {
+        console.error("Failed to load chat history", e);
+      }
+      if (list.length === 0) {
+        const t = newThread();
+        try { await createThreadDb(u.user.id, t.id); } catch (e) { console.error(e); }
+        list = [t];
+      }
+      if (cancelled) return;
+      setThreads(list);
+      const savedActive = localStorage.getItem(LS_ACTIVE);
+      setActiveId(savedActive && list.find((t) => t.id === savedActive) ? savedActive : list[0].id);
+      setSystem(localStorage.getItem(LS_SYSTEM) ?? "");
+      setModelA(localStorage.getItem(LS_MODEL_A) ?? MODELS[0].id);
+      setModelB(localStorage.getItem(LS_MODEL_B) ?? MODELS[4].id);
+      setCompare(localStorage.getItem(LS_COMPARE) === "1");
+      setMounted(true);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => { if (mounted) localStorage.setItem(LS_ACTIVE, activeId); }, [activeId, mounted]);
@@ -112,12 +132,15 @@ function ChatPage() {
 
   const persistMessages = (id: string, messages: UIMessage[]) => {
     const incomingSignature = messagesSignature(messages);
+    let shouldPersist = false;
+    let prevTitle = "New chat";
     setThreads((prev) => {
       let changed = false;
       const next = prev.map((t) => {
         if (t.id !== id) return t;
         if (messagesSignature(t.messages) === incomingSignature) return t;
         changed = true;
+        prevTitle = t.title;
         const firstUser = messages.find((m) => m.role === "user");
         const title = t.title === "New chat" && firstUser
           ? textOf(firstUser).slice(0, 40) || "New chat"
@@ -125,29 +148,51 @@ function ChatPage() {
         return { ...t, messages, updatedAt: Date.now(), title };
       });
       if (!changed) return prev;
-      saveThreads(next);
+      shouldPersist = true;
       return next;
     });
+    if (shouldPersist && userId) {
+      // Fire-and-forget DB persist (upsert)
+      persistMessagesDb(id, userId, messages, prevTitle).catch((e) => console.error("persist failed", e));
+    }
   };
 
-  const createThread = () => {
+  const createThread = async () => {
     const t = newThread();
-    const next = [t, ...threads];
-    setThreads(next); saveThreads(next);
+    setThreads((prev) => [t, ...prev]);
     setActiveId(t.id);
     setSidebarOpen(false);
+    if (userId) {
+      try { await createThreadDb(userId, t.id); } catch (e) { console.error(e); }
+    }
   };
 
-  const deleteThread = (id: string) => {
-    const next = threads.filter((t) => t.id !== id);
-    const list = next.length ? next : [newThread()];
-    setThreads(list); saveThreads(list);
+  const deleteThread = async (id: string) => {
+    const remaining = threads.filter((t) => t.id !== id);
+    let list = remaining;
+    if (list.length === 0) {
+      const t = newThread();
+      list = [t];
+      if (userId) { try { await createThreadDb(userId, t.id); } catch (e) { console.error(e); } }
+    }
+    setThreads(list);
     if (id === activeId) setActiveId(list[0].id);
+    try { await deleteThreadDb(id); } catch (e) { console.error(e); }
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
   };
 
   if (!mounted || !active) {
-    return <div className="min-h-screen bg-[#0a0912]" />;
+    return (
+      <div className="min-h-screen bg-[#0a0912] flex items-center justify-center text-white/40 text-sm">
+        Loading your chats…
+      </div>
+    );
   }
+
 
   return (
     <div className="h-screen bg-[#0a0912] text-white flex overflow-hidden">
@@ -182,12 +227,25 @@ function ChatPage() {
             </div>
           ))}
         </div>
-        <div className="p-3 border-t border-white/5">
-          <Link to="/id" className="text-[10px] text-white/40 hover:text-white/70 tracking-widest uppercase">
+        <div className="p-3 border-t border-white/5 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[10px] tracking-widest uppercase text-white/30">Signed in</div>
+              <div className="text-xs text-white/80 truncate">@{username}</div>
+            </div>
+            <button
+              onClick={signOut}
+              className="text-[10px] tracking-widest uppercase px-2 py-1 rounded-md border border-white/10 text-white/60 hover:text-white hover:bg-white/5"
+            >
+              Sign out
+            </button>
+          </div>
+          <Link to="/id" className="block text-[10px] text-white/40 hover:text-white/70 tracking-widest uppercase">
             → ID Generator
           </Link>
         </div>
       </aside>
+
 
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0">
