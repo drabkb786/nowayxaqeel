@@ -79,11 +79,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Noway Chat — Multi-Model AI Chat" },
+      { name: "description", content: "Sign in and chat with GPT and Gemini side-by-side. Your history stays synced across devices." },
+      { name: "author", content: "Noway Chat" },
+      { property: "og:title", content: "Noway Chat" },
+      { property: "og:description", content: "Multi-model AI chat with cloud-saved history." },
+
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
