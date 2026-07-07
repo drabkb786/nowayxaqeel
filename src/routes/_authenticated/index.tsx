@@ -240,7 +240,7 @@ function ChatPage() {
     <div className="h-screen bg-background text-foreground flex overflow-hidden">
       {/* Sidebar — always dark themed (ChatGPT style) */}
       <aside
-        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 ${sidebarWidth} bg-[#0b0b12] text-white/90 border-r border-white/5 flex flex-col transition-all duration-300 ease-out`}
+        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 ${sidebarWidth} bg-sidebar text-white/90 border-r border-white/5 flex flex-col transition-all duration-300 ease-out`}
       >
         <div className="p-3 flex items-center gap-2">
           <button
@@ -252,7 +252,7 @@ function ChatPage() {
             <Menu className="w-4 h-4" />
           </button>
           <div className={`flex items-center gap-2 min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-[#a56bff] via-[#6d5cff] to-[#22d3ee] flex items-center justify-center font-bold text-black text-sm">N</div>
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center font-bold text-black text-sm">N</div>
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">Noway Chat</div>
               <div className="text-[10px] text-white/40">GPT · Gemini</div>
@@ -303,7 +303,7 @@ function ChatPage() {
 
         <div className="p-3 border-t border-white/5 space-y-2">
           <div className={`flex items-center gap-2 ${sidebarCollapsed ? "lg:justify-center" : ""}`}>
-            <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-[#a56bff] to-[#22d3ee] flex items-center justify-center text-black text-sm font-bold">
+            <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-mint to-mint-glow flex items-center justify-center text-black text-sm font-bold">
               {username.slice(0, 1).toUpperCase()}
             </div>
             <div className={`min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
@@ -440,7 +440,7 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (v: string)
 
 function AiAvatar() {
   return (
-    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-[#a56bff] via-[#6d5cff] to-[#22d3ee] flex items-center justify-center text-black text-xs font-bold shadow-sm">
+    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center text-black text-xs font-bold shadow-sm">
       N
     </div>
   );
@@ -660,7 +660,7 @@ function SingleChat({
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {messages.length === 0 && (
             <div className="pt-16 sm:pt-24 pb-8 animate-in fade-in duration-500">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight bg-gradient-to-r from-[#4285f4] via-[#a56bff] to-[#ec4899] bg-clip-text text-transparent">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight bg-gradient-to-r from-mint via-primary to-mint-glow bg-clip-text text-transparent">
                 Hello, @{username}
               </h1>
               <p className="mt-3 text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-muted-foreground">
@@ -705,9 +705,9 @@ function SingleChat({
             </div>
           )}
           {pending && (
-            <div className="rounded-2xl border border-[#a56bff]/40 bg-[#a56bff]/5 p-3 space-y-3">
+            <div className="rounded-2xl border border-mint/40 bg-mint/5 p-3 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] tracking-widest uppercase text-[#a56bff]">
+                <div className="text-[10px] tracking-widest uppercase text-mint">
                   {pending.kind === "pdf" ? "PDF Preview — confirm karo" : "Preview — confirm karo"}
                 </div>
                 <div className="text-[11px] text-muted-foreground truncate max-w-[60%]" title={pending.prompt}>{pending.prompt}</div>
@@ -721,7 +721,7 @@ function SingleChat({
                 <a href={pending.url} download={pending.filename} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-foreground">⬇ Download</a>
                 <button type="button" onClick={regeneratePending} disabled={imgBusy} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-foreground disabled:opacity-40">↻ Regenerate</button>
                 <button type="button" onClick={discardPending} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-destructive/20 text-foreground">✕ Discard</button>
-                <button type="button" onClick={confirmPending} className="text-[11px] px-3 py-1.5 rounded-md bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black font-semibold">Send to chat ↑</button>
+                <button type="button" onClick={confirmPending} className="text-[11px] px-3 py-1.5 rounded-md bg-gradient-to-r from-mint to-mint-glow text-black font-semibold">Send to chat ↑</button>
               </div>
             </div>
           )}
@@ -790,7 +790,7 @@ function SingleChat({
                 disabled={!canSend}
                 className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all duration-200 ${
                   canSend
-                    ? "bg-gradient-to-br from-[#a56bff] to-[#22d3ee] text-black shadow-md hover:shadow-lg hover:brightness-110 scale-100"
+                    ? "bg-gradient-to-br from-mint to-mint-glow text-black shadow-md hover:shadow-lg hover:brightness-110 scale-100"
                     : "bg-muted text-muted-foreground scale-95"
                 }`}
                 aria-label="Send"
@@ -957,7 +957,7 @@ function CompareView({
             disabled={loading || !input.trim()}
             className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all ${
               input.trim() && !loading
-                ? "bg-gradient-to-br from-[#a56bff] to-[#22d3ee] text-black shadow-md hover:brightness-110"
+                ? "bg-gradient-to-br from-mint to-mint-glow text-black shadow-md hover:brightness-110"
                 : "bg-muted text-muted-foreground"
             }`}
             aria-label="Send"
