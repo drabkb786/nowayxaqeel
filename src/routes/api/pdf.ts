@@ -261,7 +261,7 @@ export const Route = createFileRoute("/api/pdf")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { prompt, model, font } = (await request.json()) as Body;
+          const { prompt, font } = (await request.json()) as Body;
           if (!prompt || !prompt.trim()) return new Response("prompt required", { status: 400 });
           const key = process.env.LOVABLE_API_KEY;
           if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
