@@ -758,7 +758,7 @@ function SingleChat({
             </label>
             <button
               type="button"
-              className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-background/60 transition shrink-0"
+              className="hidden w-10 h-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-background/60 transition shrink-0"
               title="Voice (coming soon)"
               aria-label="Voice"
               disabled
