@@ -361,7 +361,7 @@ function SingleChat({
               <div className="text-2xl font-semibold bg-gradient-to-r from-[#a56bff] to-[#22d3ee] bg-clip-text text-transparent">
                 Kya poochhna hai?
               </div>
-              <p className="text-white/40 text-sm mt-2">Model dropdown se select karo. History browser me save hoti hai.</p>
+              <p className="text-white/40 text-sm mt-2">Text ke liye GPT/Gemini, picture ke liye 🎨 Image model select karo.</p>
             </div>
           )}
           {messages.map((m) => <MessageBubble key={m.id} m={m} />)}
