@@ -459,9 +459,10 @@ function SingleChat({
   onMessagesChange: (m: UIMessage[]) => void;
 }) {
   const [depth, setDepth] = useState<"standard" | "extended">("standard");
+  const [research, setResearch] = useState(false);
   const transport = useMemo(
     () => new DefaultChatTransport({
-      api: "/api/chat",
+      api: research ? "/api/research" : "/api/chat",
       body: () => {
         const depthDirective =
           depth === "extended"
@@ -470,7 +471,7 @@ function SingleChat({
         return { model, system: (system ?? "") + depthDirective };
       },
     }),
-    [model, system, depth],
+    [model, system, depth, research],
   );
 
   const seedMessages = useMemo(() => initialMessages, [threadId]);
