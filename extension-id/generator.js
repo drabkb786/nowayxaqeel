@@ -110,4 +110,3 @@ function generateIdentity(countryCode) {
 }
 
 window.generateIdentity = generateIdentity;
-window.COUNTRIES_REF = COUNTRIES;
