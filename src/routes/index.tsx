@@ -778,7 +778,7 @@ function MessageBubble({ m }: { m: UIMessage }) {
       ))}
       {text && (
         <div className="prose prose-sm prose-invert max-w-none text-[15px] leading-relaxed">
-          <ReactMarkdown>{text}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
         </div>
       )}
     </div>
