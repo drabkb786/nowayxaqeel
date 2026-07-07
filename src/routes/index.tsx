@@ -19,14 +19,19 @@ export const Route = createFileRoute("/")({
 });
 
 const MODELS = [
-  { id: "openai/gpt-5.5", label: "GPT-5.5", family: "openai" },
-  { id: "openai/gpt-5", label: "GPT-5", family: "openai" },
-  { id: "openai/gpt-5-mini", label: "GPT-5 Mini", family: "openai" },
-  { id: "openai/gpt-5-nano", label: "GPT-5 Nano", family: "openai" },
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", family: "google" },
-  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", family: "google" },
-  { id: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", family: "google" },
+  { id: "openai/gpt-5.5", label: "GPT-5.5", family: "openai", kind: "text" },
+  { id: "openai/gpt-5", label: "GPT-5", family: "openai", kind: "text" },
+  { id: "openai/gpt-5-mini", label: "GPT-5 Mini", family: "openai", kind: "text" },
+  { id: "openai/gpt-5-nano", label: "GPT-5 Nano", family: "openai", kind: "text" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", family: "google", kind: "text" },
+  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", family: "google", kind: "text" },
+  { id: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", family: "google", kind: "text" },
+  { id: "google/gemini-3-pro-image", label: "🎨 Image (Gemini 3 Pro)", family: "google", kind: "image" },
+  { id: "google/gemini-3.1-flash-image", label: "🎨 Image (Nano Banana 2)", family: "google", kind: "image" },
+  { id: "openai/gpt-image-2", label: "🎨 Image (GPT Image 2)", family: "openai", kind: "image" },
 ] as const;
+
+const isImageModel = (id: string) => MODELS.find((m) => m.id === id)?.kind === "image";
 
 type Thread = { id: string; title: string; updatedAt: number; messages: UIMessage[] };
 
@@ -261,7 +266,7 @@ function SingleChat({
     [model, system],
   );
 
-  const { messages, sendMessage, status, error, stop } = useChat({
+  const { messages, setMessages, sendMessage, status, error, stop } = useChat({
     id: threadId,
     messages: initialMessages,
     transport,
@@ -269,30 +274,71 @@ function SingleChat({
 
   const [input, setInput] = useState("");
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
+  const [imgBusy, setImgBusy] = useState(false);
+  const [imgErr, setImgErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const onMsgRef = useRef(onMessagesChange);
   useEffect(() => { onMsgRef.current = onMessagesChange; });
   useEffect(() => { onMsgRef.current(messages); }, [messages]);
-  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
 
-  const busy = status === "submitted" || status === "streaming";
+  const busy = status === "submitted" || status === "streaming" || imgBusy;
+
+  const generateImage = async (prompt: string) => {
+    const userMsg: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: prompt }],
+    };
+    setMessages([...messages, userMsg]);
+    setImgBusy(true);
+    setImgErr(null);
+    try {
+      const res = await fetch("/api/image", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt, model }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { b64_json, mediaType } = (await res.json()) as { b64_json: string; mediaType: string };
+      const dataUrl = `data:${mediaType};base64,${b64_json}`;
+      const asstMsg: UIMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        parts: [{ type: "text", text: `![generated image](${dataUrl})` }],
+      };
+      setMessages((prev) => [...prev, asstMsg]);
+    } catch (e) {
+      setImgErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImgBusy(false);
+    }
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (busy || (!input.trim() && !attached)) return;
+    const prompt = input.trim();
+    if (isImageModel(model)) {
+      if (!prompt) return;
+      setInput("");
+      setAttached(null);
+      void generateImage(prompt);
+      return;
+    }
     if (attached && attached.type.startsWith("image/")) {
       sendMessage({
         role: "user",
         parts: [
-          ...(input.trim() ? [{ type: "text" as const, text: input.trim() }] : []),
+          ...(prompt ? [{ type: "text" as const, text: prompt }] : []),
           { type: "file" as const, mediaType: attached.type, url: attached.dataUrl, filename: attached.name },
         ],
       });
     } else {
-      sendMessage({ text: input.trim() });
+      sendMessage({ text: prompt });
     }
     setInput("");
     setAttached(null);
@@ -315,16 +361,16 @@ function SingleChat({
               <div className="text-2xl font-semibold bg-gradient-to-r from-[#a56bff] to-[#22d3ee] bg-clip-text text-transparent">
                 Kya poochhna hai?
               </div>
-              <p className="text-white/40 text-sm mt-2">Model dropdown se select karo. History browser me save hoti hai.</p>
+              <p className="text-white/40 text-sm mt-2">Text ke liye GPT/Gemini, picture ke liye 🎨 Image model select karo.</p>
             </div>
           )}
           {messages.map((m) => <MessageBubble key={m.id} m={m} />)}
-          {status === "submitted" && (
-            <div className="text-xs text-white/40 animate-pulse">Thinking…</div>
+          {(status === "submitted" || imgBusy) && (
+            <div className="text-xs text-white/40 animate-pulse">{imgBusy ? "🎨 Generating image…" : "Thinking…"}</div>
           )}
-          {error && (
+          {(error || imgErr) && (
             <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-              {error.message}
+              {error?.message ?? imgErr}
             </div>
           )}
         </div>
