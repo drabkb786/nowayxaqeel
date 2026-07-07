@@ -1,12 +1,16 @@
 const DEFAULTS = {
   planName: 'chatgptplusplan',
   entryPoint: 'all_plans_pricing_modal',
-  promoId: 'plus-1-month-free',
+  // Promo removed — a free-trial promo zeroes the amount and Stripe then
+  // hides the UPI QR scanner after collecting the name.
+  promoId: '',
+  promoCode: '',
   country: 'IN',
   currency: 'INR',
   cancelUrl: 'https://chatgpt.com/#pricing',
   uiMode: 'hosted',
 };
+
 
 const form = document.getElementById('checkoutForm');
 const generateButton = document.getElementById('generateButton');
