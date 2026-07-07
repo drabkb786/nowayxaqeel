@@ -614,8 +614,24 @@ function MessageBubble({ m }: { m: UIMessage }) {
     );
   }
   return (
-    <div className="prose prose-sm prose-invert max-w-none text-[15px] leading-relaxed">
-      <ReactMarkdown>{text || " "}</ReactMarkdown>
+    <div className="space-y-3">
+      {fileParts.map((f, i) => (
+        f.mediaType.startsWith("image/") ? (
+          <div key={i} className="space-y-2">
+            <img src={f.url} alt={f.filename ?? "generated"} className="rounded-xl max-w-full max-h-[70vh] border border-white/10" />
+            <a href={f.url} download={f.filename ?? "image.png"} className="inline-block text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70">
+              ⬇ Download PNG
+            </a>
+          </div>
+        ) : (
+          <div key={i} className="text-xs text-white/60">📎 {f.filename}</div>
+        )
+      ))}
+      {text && (
+        <div className="prose prose-sm prose-invert max-w-none text-[15px] leading-relaxed">
+          <ReactMarkdown>{text}</ReactMarkdown>
+        </div>
+      )}
     </div>
   );
 }
