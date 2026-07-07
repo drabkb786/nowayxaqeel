@@ -33,6 +33,11 @@ const MODELS = [
 
 const isImageModel = (id: string) => MODELS.find((m) => m.id === id)?.kind === "image";
 
+// Auto-detect: does the user prompt ask for an actual picture/image?
+const IMAGE_INTENT = /\b(image|picture|photo|photograph|pic|poster|logo|icon|illustration|drawing|sketch|painting|render|artwork|wallpaper|thumbnail|avatar|banner|scene|portrait|meme|design|3d\s*render|tasveer|tasvir|photo\s*bana|picture\s*bana|image\s*bana|banao|bana\s*do|bana\s*ke|draw|paint|generate\s+(an?\s+)?(image|picture|photo|logo|icon))\b/i;
+const CODE_INTENT = /\b(svg|html|css|code|snippet|script|component|function|json|xml|markdown|program)\b/i;
+const looksLikeImageRequest = (text: string) => IMAGE_INTENT.test(text) && !CODE_INTENT.test(text);
+
 type Thread = { id: string; title: string; updatedAt: number; messages: UIMessage[] };
 
 const LS_THREADS = "noway.chat.threads.v1";
