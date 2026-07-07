@@ -395,6 +395,14 @@ function SingleChat({
     e.preventDefault();
     if (busy || (!input.trim() && !attached)) return;
     const prompt = input.trim();
+    // Auto-detect PDF/document request
+    if (looksLikePdfRequest(prompt)) {
+      if (!prompt) return;
+      setInput("");
+      setAttached(null);
+      void generatePdf(prompt, extractFont(prompt));
+      return;
+    }
     // Auto-detect image request even on text models
     const wantsImage = isImageModel(model) || looksLikeImageRequest(prompt);
     if (wantsImage) {
