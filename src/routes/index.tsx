@@ -277,9 +277,11 @@ function SingleChat({
     [model, system],
   );
 
+  // Freeze initial messages per thread so parent-persist updates don't feed back into useChat
+  const seedMessages = useMemo(() => initialMessages, [threadId]);
   const { messages, setMessages, sendMessage, status, error, stop } = useChat({
     id: threadId,
-    messages: initialMessages,
+    messages: seedMessages,
     transport,
   });
 
