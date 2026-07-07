@@ -234,34 +234,9 @@ async function renderPdf(doc: Doc): Promise<Uint8Array> {
     y -= leading + PARA_GAP;
   };
 
-  const drawImage = (img: PDFImage | null | undefined, caption?: string) => {
-    if (!img) {
-      // Friendly placeholder note if generation failed
-      if (caption) {
-        drawRuns([{ text: `[Image: ${caption}]`, italic: true }]);
-      }
-      return;
-    }
-    const maxW = CONTENT_W;
-    const maxH = 340;
-    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-    const w = img.width * scale;
-    const h = img.height * scale;
-    const captionH = caption ? 14 : 0;
-    ensureSpace(h + captionH + 10);
-    const x = MARGIN + (CONTENT_W - w) / 2;
-    page.drawImage(img, { x, y: y - h, width: w, height: h });
-    y -= h + 4;
-    if (caption) {
-      const lines = wrap(clean(caption), fonts.italic, 9, CONTENT_W);
-      for (const line of lines) {
-        const lw = fonts.italic.widthOfTextAtSize(line, 9);
-        ensureSpace(12);
-        page.drawText(line, { x: MARGIN + (CONTENT_W - lw) / 2, y: y - 9, size: 9, font: fonts.italic, color: muted });
-        y -= 12;
-      }
-    }
-    y -= 8;
+  const drawImagePlaceholder = (block: Extract<Block, { type: "image" }>) => {
+    const label = block.caption || block.prompt;
+    if (label) drawRuns([{ text: `[Visual note: ${label}]`, italic: true }]);
   };
 
   for (const block of doc.blocks) {
@@ -284,7 +259,7 @@ async function renderPdf(doc: Doc): Promise<Uint8Array> {
         i++;
       }
     } else if (block.type === "image") {
-      drawImage(embedded.get(block), block.caption);
+      drawImagePlaceholder(block);
     }
   }
 
@@ -301,21 +276,14 @@ export const Route = createFileRoute("/api/pdf")({
           const key = process.env.LOVABLE_API_KEY;
           if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
 
-          const chosenModel = model || "google/gemini-3-flash-preview";
+          const chosenModel = pickPdfModel(model);
           const userPrompt = font
             ? `${prompt}\n\n(Preferred font family: ${font})`
             : prompt;
 
           const doc = await callLLMJson(userPrompt, chosenModel, key);
           if (font && !doc.font) doc.font = font;
-          // Cap image blocks to at most 2 to keep total time under the CF 100s limit.
-          let imgCount = 0;
-          doc.blocks = doc.blocks.filter((b) => {
-            if (b.type !== "image") return true;
-            imgCount++;
-            return imgCount <= 2;
-          });
-          const bytes = await renderPdf(doc, key);
+          const bytes = await renderPdf(doc);
           const b64 = Buffer.from(bytes).toString("base64");
           const filename = (doc.title || "document")
             .toLowerCase()
