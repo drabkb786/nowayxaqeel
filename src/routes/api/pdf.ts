@@ -30,7 +30,20 @@ type Doc = {
 };
 
 function pickPdfModel(): string {
-  return "openai/gpt-5-mini";
+  // Faster than gpt-5-mini; two sequential calls + image generations must
+  // fit within the Worker's wall-clock budget, so speed matters more than
+  // marginal quality gains here.
+  return "google/gemini-2.5-flash";
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const DRAFT_SYSTEM = `You are a senior editorial writer producing premium, magazine-quality long-form documents.
@@ -150,11 +163,11 @@ async function callLLM(
   };
   if (jsonMode) body.response_format = { type: "json_object" };
   if (isOpenAI) body.service_tier = "priority";
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, 90_000);
   if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   return (json.choices?.[0]?.message?.content ?? "").trim();
@@ -183,7 +196,7 @@ async function draftAndLayout(prompt: string, model: string, key: string): Promi
 
 async function generateImageBytes(prompt: string, key: string): Promise<Uint8Array | null> {
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+    const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -191,7 +204,7 @@ async function generateImageBytes(prompt: string, key: string): Promise<Uint8Arr
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),
-    });
+    }, 45_000);
     if (!res.ok) return null;
     const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
     const b64 = json.data?.[0]?.b64_json;
@@ -205,7 +218,7 @@ async function generateImageBytes(prompt: string, key: string): Promise<Uint8Arr
   }
 }
 
-async function hydrateImages(doc: Doc, key: string, cap = 6): Promise<Map<number, Uint8Array>> {
+async function hydrateImages(doc: Doc, key: string, cap = 3): Promise<Map<number, Uint8Array>> {
   const targets: number[] = [];
   doc.blocks.forEach((b, i) => { if (b.type === "image" && b.prompt) targets.push(i); });
   const picked = targets.slice(0, cap);
