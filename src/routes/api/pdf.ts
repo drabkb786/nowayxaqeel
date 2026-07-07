@@ -66,7 +66,6 @@ async function callLLMJson(prompt: string, model: string, key: string): Promise<
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(60_000),
   });
   if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
@@ -87,7 +86,6 @@ async function generateImage(prompt: string, key: string): Promise<Uint8Array | 
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),
-      signal: AbortSignal.timeout(40_000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as {
