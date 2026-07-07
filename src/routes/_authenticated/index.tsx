@@ -494,13 +494,36 @@ function SingleChat({
   );
 
   const seedMessages = useMemo(() => initialMessages, [threadId]);
-  const { messages, setMessages, sendMessage, status, error, stop } = useChat({
+  const { messages, setMessages, sendMessage, status, error, stop, regenerate } = useChat({
     id: threadId,
     messages: seedMessages,
     generateId: () => crypto.randomUUID(),
     experimental_throttle: 250,
     transport,
   });
+
+  // Auto-retry on error (self-heal) — up to 2 attempts with backoff
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<number | null>(null);
+  const lastErrorSigRef = useRef<string>("");
+  useEffect(() => {
+    if (!error) { retryCountRef.current = 0; lastErrorSigRef.current = ""; return; }
+    const sig = `${error.message}|${messages.length}`;
+    if (sig === lastErrorSigRef.current) return;
+    lastErrorSigRef.current = sig;
+    if (retryCountRef.current >= 2) return;
+    if (!messages.some((m) => m.role === "user")) return;
+    const attempt = ++retryCountRef.current;
+    const delay = attempt === 1 ? 800 : 2200;
+    if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = window.setTimeout(() => {
+      retryTimerRef.current = null;
+      try { regenerate?.(); } catch (e) { console.error("auto-retry failed", e); }
+    }, delay);
+    return () => {
+      if (retryTimerRef.current) { window.clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
+    };
+  }, [error, messages, regenerate]);
 
   const [input, setInput] = useState("");
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
@@ -841,6 +864,9 @@ function SingleChat({
           {(error || imgErr) && (
             <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
               {error?.message ?? imgErr}
+              {error && retryCountRef.current > 0 && retryCountRef.current <= 2 && (
+                <div className="mt-1 text-muted-foreground">Auto-retrying… (attempt {retryCountRef.current}/2)</div>
+              )}
             </div>
           )}
           {pending && (
