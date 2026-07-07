@@ -334,6 +334,32 @@ function SingleChat({
     }
   };
 
+  const generatePdf = async (prompt: string, font?: string) => {
+    setImgBusy(true);
+    setImgErr(null);
+    if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url);
+    setPending(null);
+    try {
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt, model, font }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { b64_pdf, mediaType, filename } = (await res.json()) as { b64_pdf: string; mediaType: string; filename: string };
+      const bin = atob(b64_pdf);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mediaType || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      setPending({ prompt, url, mediaType: mediaType || "application/pdf", kind: "pdf", filename: filename || "document.pdf" });
+    } catch (e) {
+      setImgErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImgBusy(false);
+    }
+  };
+
   const confirmPending = () => {
     if (!pending) return;
     const userMsg: UIMessage = {
@@ -344,7 +370,7 @@ function SingleChat({
     const asstMsg: UIMessage = {
       id: crypto.randomUUID(),
       role: "assistant",
-      parts: [{ type: "file", mediaType: pending.mediaType, url: pending.url, filename: "generated.png" }],
+      parts: [{ type: "file", mediaType: pending.mediaType, url: pending.url, filename: pending.filename }],
     };
     setMessages((prev) => [...prev, userMsg, asstMsg]);
     setPending(null); // do NOT revoke — msg is now using this url
@@ -358,7 +384,11 @@ function SingleChat({
   const regeneratePending = () => {
     if (!pending) return;
     const p = pending.prompt;
-    void generateImage(p, isImageModel(model) ? model : "google/gemini-3-pro-image");
+    if (pending.kind === "pdf") {
+      void generatePdf(p, extractFont(p));
+    } else {
+      void generateImage(p, isImageModel(model) ? model : "google/gemini-3-pro-image");
+    }
   };
 
   const submit = (e: React.FormEvent) => {
