@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IdRouteImport } from './routes/id'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPdfRouteImport } from './routes/api/pdf'
 import { Route as ApiImageRouteImport } from './routes/api/image'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 
@@ -22,6 +23,11 @@ const IdRoute = IdRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPdfRoute = ApiPdfRouteImport.update({
+  id: '/api/pdf',
+  path: '/api/pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiImageRoute = ApiImageRouteImport.update({
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/id': typeof IdRoute
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
+  '/api/pdf': typeof ApiPdfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/id': typeof IdRoute
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
+  '/api/pdf': typeof ApiPdfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/id': typeof IdRoute
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
+  '/api/pdf': typeof ApiPdfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/id' | '/api/chat' | '/api/image'
+  fullPaths: '/' | '/id' | '/api/chat' | '/api/image' | '/api/pdf'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/id' | '/api/chat' | '/api/image'
-  id: '__root__' | '/' | '/id' | '/api/chat' | '/api/image'
+  to: '/' | '/id' | '/api/chat' | '/api/image' | '/api/pdf'
+  id: '__root__' | '/' | '/id' | '/api/chat' | '/api/image' | '/api/pdf'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +76,7 @@ export interface RootRouteChildren {
   IdRoute: typeof IdRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiImageRoute: typeof ApiImageRoute
+  ApiPdfRoute: typeof ApiPdfRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pdf': {
+      id: '/api/pdf'
+      path: '/api/pdf'
+      fullPath: '/api/pdf'
+      preLoaderRoute: typeof ApiPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/image': {
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   IdRoute: IdRoute,
   ApiChatRoute: ApiChatRoute,
   ApiImageRoute: ApiImageRoute,
+  ApiPdfRoute: ApiPdfRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

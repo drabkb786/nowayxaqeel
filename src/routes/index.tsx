@@ -36,7 +36,13 @@ const isImageModel = (id: string) => MODELS.find((m) => m.id === id)?.kind === "
 // Auto-detect: does the user prompt ask for an actual picture/image?
 const IMAGE_INTENT = /\b(image|picture|photo|photograph|pic|poster|logo|icon|illustration|drawing|sketch|painting|render|artwork|wallpaper|thumbnail|avatar|banner|scene|portrait|meme|design|3d\s*render|tasveer|tasvir|photo\s*bana|picture\s*bana|image\s*bana|banao|bana\s*do|bana\s*ke|draw|paint|generate\s+(an?\s+)?(image|picture|photo|logo|icon))\b/i;
 const CODE_INTENT = /\b(svg|html|css|code|snippet|script|component|function|json|xml|markdown|program)\b/i;
-const looksLikeImageRequest = (text: string) => IMAGE_INTENT.test(text) && !CODE_INTENT.test(text);
+const looksLikeImageRequest = (text: string) => IMAGE_INTENT.test(text) && !CODE_INTENT.test(text) && !PDF_INTENT.test(text);
+
+// PDF request detection
+const PDF_INTENT = /\b(pdf|document|report|resume|cv|letter|invoice|proposal|whitepaper|brochure|guide|handbook|essay|article|contract|agreement|ebook|pdf\s*bana|document\s*bana|report\s*bana|pdf\s*banao)\b/i;
+const FONT_RE = /\b(arial|helvetica|times(?:\s+new\s+roman)?|roboto|courier|georgia|verdana|calibri|serif|sans-?serif|monospace)\b/i;
+const looksLikePdfRequest = (text: string) => PDF_INTENT.test(text);
+const extractFont = (text: string): string | undefined => text.match(FONT_RE)?.[1];
 
 type Thread = { id: string; title: string; updatedAt: number; messages: UIMessage[] };
 
@@ -281,7 +287,13 @@ function SingleChat({
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imgErr, setImgErr] = useState<string | null>(null);
-  const [pending, setPending] = useState<{ prompt: string; url: string; mediaType: string } | null>(null);
+  const [pending, setPending] = useState<{
+    prompt: string;
+    url: string;
+    mediaType: string;
+    kind: "image" | "pdf";
+    filename: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -314,7 +326,33 @@ function SingleChat({
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: mediaType || "image/png" });
       const url = URL.createObjectURL(blob);
-      setPending({ prompt, url, mediaType: mediaType || "image/png" });
+      setPending({ prompt, url, mediaType: mediaType || "image/png", kind: "image", filename: "generated.png" });
+    } catch (e) {
+      setImgErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImgBusy(false);
+    }
+  };
+
+  const generatePdf = async (prompt: string, font?: string) => {
+    setImgBusy(true);
+    setImgErr(null);
+    if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url);
+    setPending(null);
+    try {
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt, model, font }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { b64_pdf, mediaType, filename } = (await res.json()) as { b64_pdf: string; mediaType: string; filename: string };
+      const bin = atob(b64_pdf);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mediaType || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      setPending({ prompt, url, mediaType: mediaType || "application/pdf", kind: "pdf", filename: filename || "document.pdf" });
     } catch (e) {
       setImgErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -332,7 +370,7 @@ function SingleChat({
     const asstMsg: UIMessage = {
       id: crypto.randomUUID(),
       role: "assistant",
-      parts: [{ type: "file", mediaType: pending.mediaType, url: pending.url, filename: "generated.png" }],
+      parts: [{ type: "file", mediaType: pending.mediaType, url: pending.url, filename: pending.filename }],
     };
     setMessages((prev) => [...prev, userMsg, asstMsg]);
     setPending(null); // do NOT revoke — msg is now using this url
@@ -346,13 +384,25 @@ function SingleChat({
   const regeneratePending = () => {
     if (!pending) return;
     const p = pending.prompt;
-    void generateImage(p, isImageModel(model) ? model : "google/gemini-3-pro-image");
+    if (pending.kind === "pdf") {
+      void generatePdf(p, extractFont(p));
+    } else {
+      void generateImage(p, isImageModel(model) ? model : "google/gemini-3-pro-image");
+    }
   };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (busy || (!input.trim() && !attached)) return;
     const prompt = input.trim();
+    // Auto-detect PDF/document request
+    if (looksLikePdfRequest(prompt)) {
+      if (!prompt) return;
+      setInput("");
+      setAttached(null);
+      void generatePdf(prompt, extractFont(prompt));
+      return;
+    }
     // Auto-detect image request even on text models
     const wantsImage = isImageModel(model) || looksLikeImageRequest(prompt);
     if (wantsImage) {
@@ -400,7 +450,7 @@ function SingleChat({
           )}
           {messages.map((m) => <MessageBubble key={m.id} m={m} />)}
           {(status === "submitted" || imgBusy) && (
-            <div className="text-xs text-white/40 animate-pulse">{imgBusy ? "🎨 Generating image…" : "Thinking…"}</div>
+            <div className="text-xs text-white/40 animate-pulse">{imgBusy ? "⏳ Generating…" : "Thinking…"}</div>
           )}
           {(error || imgErr) && (
             <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
@@ -410,12 +460,18 @@ function SingleChat({
           {pending && (
             <div className="rounded-2xl border border-[#a56bff]/40 bg-[#a56bff]/5 p-3 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] tracking-widest uppercase text-[#a56bff]">Preview — confirm karo</div>
+                <div className="text-[10px] tracking-widest uppercase text-[#a56bff]">
+                  {pending.kind === "pdf" ? "PDF Preview — confirm karo" : "Preview — confirm karo"}
+                </div>
                 <div className="text-[11px] text-white/50 truncate max-w-[60%]" title={pending.prompt}>{pending.prompt}</div>
               </div>
-              <img src={pending.url} alt="preview" className="rounded-xl max-w-full max-h-[60vh] border border-white/10 mx-auto block" />
+              {pending.kind === "pdf" ? (
+                <iframe src={pending.url} title="pdf-preview" className="w-full h-[70vh] rounded-xl border border-white/10 bg-white" />
+              ) : (
+                <img src={pending.url} alt="preview" className="rounded-xl max-w-full max-h-[60vh] border border-white/10 mx-auto block" />
+              )}
               <div className="flex flex-wrap gap-2 justify-end">
-                <a href={pending.url} download="generated.png" className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80">⬇ Download</a>
+                <a href={pending.url} download={pending.filename} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80">⬇ Download</a>
                 <button type="button" onClick={regeneratePending} disabled={imgBusy} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/80 disabled:opacity-40">↻ Regenerate</button>
                 <button type="button" onClick={discardPending} className="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-red-500/20 text-white/80">✕ Discard</button>
                 <button type="button" onClick={confirmPending} className="text-[11px] px-3 py-1.5 rounded-md bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black font-semibold">Send to chat ↑</button>
@@ -663,6 +719,13 @@ function MessageBubble({ m }: { m: UIMessage }) {
             <img src={f.url} alt={f.filename ?? "generated"} className="rounded-xl max-w-full max-h-[70vh] border border-white/10" />
             <a href={f.url} download={f.filename ?? "image.png"} className="inline-block text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70">
               ⬇ Download PNG
+            </a>
+          </div>
+        ) : f.mediaType === "application/pdf" ? (
+          <div key={i} className="space-y-2">
+            <iframe src={f.url} title={f.filename ?? "pdf"} className="w-full h-[60vh] rounded-xl border border-white/10 bg-white" />
+            <a href={f.url} download={f.filename ?? "document.pdf"} className="inline-block text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70">
+              ⬇ Download PDF · {f.filename}
             </a>
           </div>
         ) : (
