@@ -287,7 +287,13 @@ function SingleChat({
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imgErr, setImgErr] = useState<string | null>(null);
-  const [pending, setPending] = useState<{ prompt: string; url: string; mediaType: string } | null>(null);
+  const [pending, setPending] = useState<{
+    prompt: string;
+    url: string;
+    mediaType: string;
+    kind: "image" | "pdf";
+    filename: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
