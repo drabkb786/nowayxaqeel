@@ -100,6 +100,7 @@ async function generateImage(prompt: string, key: string): Promise<Uint8Array | 
 }
 
 async function pickFonts(pdf: PDFDocument, family: "Helvetica" | "Times" | "Courier") {
+  const { StandardFonts } = await loadPdfLib();
   if (family === "Times") {
     return {
       regular: await pdf.embedFont(StandardFonts.TimesRoman),
