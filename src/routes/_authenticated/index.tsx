@@ -950,7 +950,7 @@ function CompareView({
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
             placeholder="Prompt for both models…"
             rows={1}
-            className="flex-1 bg-transparent resize-none outline-none text-[15px] placeholder:text-muted-foreground max-h-48 py-2.5 px-3"
+            className="flex-1 min-w-0 w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground max-h-48 py-2.5 px-3"
           />
           <button
             type="submit"
