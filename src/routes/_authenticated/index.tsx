@@ -240,27 +240,27 @@ function ChatPage() {
     <div className="h-screen bg-background text-foreground flex overflow-hidden">
       {/* Sidebar — always dark themed (ChatGPT style) */}
       <aside
-        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 ${sidebarWidth} bg-[#0b0b12] text-white/90 border-r border-white/5 flex flex-col transition-all duration-300 ease-out`}
+        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 ${sidebarWidth} bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-all duration-300 ease-out`}
       >
         <div className="p-3 flex items-center gap-2">
           <button
             onClick={() => setSidebarCollapsed((v) => !v)}
-            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg hover:bg-white/5 text-white/70 shrink-0"
+            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg hover:bg-sidebar-accent/40 text-sidebar-foreground/70 shrink-0"
             aria-label="Collapse sidebar"
             title="Toggle sidebar"
           >
             <Menu className="w-4 h-4" />
           </button>
           <div className={`flex items-center gap-2 min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-[#a56bff] via-[#6d5cff] to-[#22d3ee] flex items-center justify-center font-bold text-black text-sm">N</div>
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center font-bold text-black text-sm">N</div>
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">Noway Chat</div>
-              <div className="text-[10px] text-white/40">GPT · Gemini</div>
+              <div className="text-[10px] text-sidebar-foreground/40">GPT · Gemini</div>
             </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5"
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/40"
             aria-label="Close sidebar"
           >
             <X className="w-4 h-4" />
@@ -270,20 +270,20 @@ function ChatPage() {
         <div className="px-3">
           <button
             onClick={createThread}
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 transition ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-sidebar-accent/50 hover:bg-sidebar-accent border border-sidebar-border transition ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
           >
             <Plus className="w-4 h-4 shrink-0" />
             <span className={sidebarCollapsed ? "lg:hidden" : ""}>New chat</span>
           </button>
         </div>
 
-        <div className={`px-3 pt-4 pb-1 text-[10px] tracking-widest uppercase text-white/30 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+        <div className={`px-3 pt-4 pb-1 text-[10px] tracking-widest uppercase text-sidebar-foreground/30 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           Recent
         </div>
 
         <div className={`flex-1 overflow-y-auto px-2 space-y-0.5 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           {threads.slice().sort((a, b) => b.updatedAt - a.updatedAt).map((t) => (
-            <div key={t.id} className={`group flex items-center gap-1 rounded-lg transition ${t.id === activeId ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"}`}>
+            <div key={t.id} className={`group flex items-center gap-1 rounded-lg transition ${t.id === activeId ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/40"}`}>
               <button
                 onClick={() => { setActiveId(t.id); setSidebarOpen(false); }}
                 className="flex-1 text-left px-3 py-2 text-sm truncate"
@@ -292,7 +292,7 @@ function ChatPage() {
               </button>
               <button
                 onClick={() => deleteThread(t.id)}
-                className="opacity-0 group-hover:opacity-100 px-2 py-2 text-white/40 hover:text-red-400 transition"
+                className="opacity-0 group-hover:opacity-100 px-2 py-2 text-sidebar-foreground/40 hover:text-red-400 transition"
                 aria-label="Delete"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -301,19 +301,19 @@ function ChatPage() {
           ))}
         </div>
 
-        <div className="p-3 border-t border-white/5 space-y-2">
+        <div className="p-3 border-t border-sidebar-border space-y-2">
           <div className={`flex items-center gap-2 ${sidebarCollapsed ? "lg:justify-center" : ""}`}>
-            <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-[#a56bff] to-[#22d3ee] flex items-center justify-center text-black text-sm font-bold">
+            <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-mint to-mint-glow flex items-center justify-center text-black text-sm font-bold">
               {username.slice(0, 1).toUpperCase()}
             </div>
             <div className={`min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-              <div className="text-sm text-white/90 truncate">@{username}</div>
-              <div className="text-[10px] text-white/40">Signed in</div>
+              <div className="text-sm text-sidebar-foreground truncate">@{username}</div>
+              <div className="text-[10px] text-sidebar-foreground/40">Signed in</div>
             </div>
             <button
               onClick={signOut}
               title="Sign out"
-              className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 text-white/60 hover:text-white ${sidebarCollapsed ? "lg:hidden" : ""}`}
+              className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/40 text-sidebar-foreground/60 hover:text-sidebar-foreground ${sidebarCollapsed ? "lg:hidden" : ""}`}
               aria-label="Sign out"
             >
               <LogOut className="w-4 h-4" />
@@ -321,7 +321,7 @@ function ChatPage() {
           </div>
           <Link
             to="/id"
-            className={`block text-[11px] text-white/40 hover:text-white/70 px-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}
+            className={`block text-[11px] text-sidebar-foreground/40 hover:text-sidebar-foreground/70 px-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}
           >
             → ID Generator
           </Link>
@@ -352,7 +352,7 @@ function ChatPage() {
               type="checkbox"
               checked={compare}
               onChange={(e) => setCompare(e.target.checked)}
-              className="accent-[#a56bff]"
+              className="accent-mint"
             />
             Compare
           </label>
@@ -440,7 +440,7 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (v: string)
 
 function AiAvatar() {
   return (
-    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-[#a56bff] via-[#6d5cff] to-[#22d3ee] flex items-center justify-center text-black text-xs font-bold shadow-sm">
+    <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center text-black text-xs font-bold shadow-sm">
       N
     </div>
   );
@@ -659,29 +659,40 @@ function SingleChat({
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {messages.length === 0 && (
-            <div className="pt-16 sm:pt-24 pb-8 animate-in fade-in duration-500">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight bg-gradient-to-r from-[#4285f4] via-[#a56bff] to-[#ec4899] bg-clip-text text-transparent">
+            <div className="pt-10 sm:pt-16 pb-8 animate-in fade-in duration-500">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mint/10 border border-mint/30 text-mint text-[11px] tracking-widest uppercase font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-mint animate-pulse" />
+                Noway · Online
+              </div>
+              <h1 className="mt-5 font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[0.95] bg-gradient-to-br from-mint via-primary to-mint-glow bg-clip-text text-transparent">
                 Hello, @{username}
               </h1>
-              <p className="mt-3 text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-muted-foreground">
-                How can I help you today?
+              <p className="mt-3 text-xl sm:text-2xl md:text-3xl font-display font-medium tracking-tight text-muted-foreground">
+                Aaj kya banayenge?
               </p>
-              <div className="mt-10 grid sm:grid-cols-2 gap-3">
-                {SUGGESTIONS.map((s) => {
+              <div className="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
+                {SUGGESTIONS.map((s, i) => {
                   const Icon = s.icon;
+                  const spans = [
+                    "col-span-2 lg:col-span-2 lg:row-span-2",
+                    "col-span-2 lg:col-span-2",
+                    "col-span-1 lg:col-span-1",
+                    "col-span-1 lg:col-span-1",
+                  ];
                   return (
                     <button
                       key={s.title}
                       type="button"
                       onClick={() => onSuggestion(s.prompt)}
-                      className="group text-left rounded-2xl border border-border bg-background/60 backdrop-blur-xl p-4 hover:bg-muted/60 hover:border-ring/40 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
+                      className={`group relative overflow-hidden text-left bento-card p-5 hover:mint-glow hover:-translate-y-0.5 transition-all duration-300 ${spans[i] ?? ""}`}
                     >
-                      <div className="text-sm font-medium text-foreground leading-snug min-h-[2.5rem]">
-                        {s.title}
-                      </div>
-                      <div className="mt-6 flex justify-end">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:text-foreground transition">
-                          <Icon className="w-4 h-4" />
+                      <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-mint/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative flex flex-col h-full min-h-[7rem] justify-between gap-6">
+                        <div className="w-10 h-10 rounded-xl bg-mint/15 border border-mint/25 flex items-center justify-center text-mint">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="font-display text-base sm:text-lg font-medium text-foreground leading-snug">
+                          {s.title}
                         </div>
                       </div>
                     </button>
@@ -705,9 +716,9 @@ function SingleChat({
             </div>
           )}
           {pending && (
-            <div className="rounded-2xl border border-[#a56bff]/40 bg-[#a56bff]/5 p-3 space-y-3">
+            <div className="rounded-2xl border border-mint/40 bg-mint/5 p-3 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] tracking-widest uppercase text-[#a56bff]">
+                <div className="text-[10px] tracking-widest uppercase text-mint">
                   {pending.kind === "pdf" ? "PDF Preview — confirm karo" : "Preview — confirm karo"}
                 </div>
                 <div className="text-[11px] text-muted-foreground truncate max-w-[60%]" title={pending.prompt}>{pending.prompt}</div>
@@ -721,7 +732,7 @@ function SingleChat({
                 <a href={pending.url} download={pending.filename} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-foreground">⬇ Download</a>
                 <button type="button" onClick={regeneratePending} disabled={imgBusy} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-foreground disabled:opacity-40">↻ Regenerate</button>
                 <button type="button" onClick={discardPending} className="text-[11px] px-3 py-1.5 rounded-md bg-muted hover:bg-destructive/20 text-foreground">✕ Discard</button>
-                <button type="button" onClick={confirmPending} className="text-[11px] px-3 py-1.5 rounded-md bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black font-semibold">Send to chat ↑</button>
+                <button type="button" onClick={confirmPending} className="text-[11px] px-3 py-1.5 rounded-md bg-gradient-to-r from-mint to-mint-glow text-black font-semibold">Send to chat ↑</button>
               </div>
             </div>
           )}
@@ -790,7 +801,7 @@ function SingleChat({
                 disabled={!canSend}
                 className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all duration-200 ${
                   canSend
-                    ? "bg-gradient-to-br from-[#a56bff] to-[#22d3ee] text-black shadow-md hover:shadow-lg hover:brightness-110 scale-100"
+                    ? "bg-gradient-to-br from-mint to-mint-glow text-black shadow-md hover:shadow-lg hover:brightness-110 scale-100"
                     : "bg-muted text-muted-foreground scale-95"
                 }`}
                 aria-label="Send"
@@ -957,7 +968,7 @@ function CompareView({
             disabled={loading || !input.trim()}
             className={`w-10 h-10 flex items-center justify-center rounded-full shrink-0 transition-all ${
               input.trim() && !loading
-                ? "bg-gradient-to-br from-[#a56bff] to-[#22d3ee] text-black shadow-md hover:brightness-110"
+                ? "bg-gradient-to-br from-mint to-mint-glow text-black shadow-md hover:brightness-110"
                 : "bg-muted text-muted-foreground"
             }`}
             aria-label="Send"
