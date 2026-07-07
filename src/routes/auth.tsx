@@ -6,8 +6,8 @@ export const Route = createFileRoute("/auth")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Sign in — Noway Chat" },
-      { name: "description", content: "Sign in ya account banao Noway Chat me apni chat history ko save karne ke liye." },
+      { title: "Sign in — NOWAYxAQEEL GPT" },
+      { name: "description", content: "Sign in ya account banao NOWAYxAQEEL GPT me apni chat history ko save karne ke liye." },
       { name: "robots", content: "noindex" },
     ],
   }),
