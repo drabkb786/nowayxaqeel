@@ -21,6 +21,7 @@ import {
   Code2,
   ImageIcon,
   X,
+  Globe,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
