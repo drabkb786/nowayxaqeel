@@ -281,26 +281,27 @@ function SingleChat({
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imgErr, setImgErr] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ prompt: string; url: string; mediaType: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const onMsgRef = useRef(onMessagesChange);
   useEffect(() => { onMsgRef.current = onMessagesChange; });
   useEffect(() => { onMsgRef.current(messages); }, [messages]);
-  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy, pending]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
+  // Revoke blob URL when replaced/unmounted
+  useEffect(() => {
+    return () => { if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url); };
+  }, [pending]);
 
   const busy = status === "submitted" || status === "streaming" || imgBusy;
 
   const generateImage = async (prompt: string, imgModel: string = model) => {
-    const userMsg: UIMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      parts: [{ type: "text", text: prompt }],
-    };
-    setMessages([...messages, userMsg]);
     setImgBusy(true);
     setImgErr(null);
+    if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url);
+    setPending(null);
     try {
       const res = await fetch("/api/image", {
         method: "POST",
@@ -309,18 +310,45 @@ function SingleChat({
       });
       if (!res.ok) throw new Error(await res.text());
       const { b64_json, mediaType } = (await res.json()) as { b64_json: string; mediaType: string };
-      const dataUrl = `data:${mediaType};base64,${b64_json}`;
-      const asstMsg: UIMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        parts: [{ type: "file", mediaType, url: dataUrl, filename: "generated.png" }],
-      };
-      setMessages((prev) => [...prev, asstMsg]);
+      // Decode base64 → Blob so browser treats it as a real PNG (correct MIME, clean download)
+      const bin = atob(b64_json);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mediaType || "image/png" });
+      const url = URL.createObjectURL(blob);
+      setPending({ prompt, url, mediaType: mediaType || "image/png" });
     } catch (e) {
       setImgErr(e instanceof Error ? e.message : String(e));
     } finally {
       setImgBusy(false);
     }
+  };
+
+  const confirmPending = () => {
+    if (!pending) return;
+    const userMsg: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: pending.prompt }],
+    };
+    const asstMsg: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      parts: [{ type: "file", mediaType: pending.mediaType, url: pending.url, filename: "generated.png" }],
+    };
+    setMessages((prev) => [...prev, userMsg, asstMsg]);
+    setPending(null); // do NOT revoke — msg is now using this url
+  };
+
+  const discardPending = () => {
+    if (pending?.url.startsWith("blob:")) URL.revokeObjectURL(pending.url);
+    setPending(null);
+  };
+
+  const regeneratePending = () => {
+    if (!pending) return;
+    const p = pending.prompt;
+    void generateImage(p, isImageModel(model) ? model : "google/gemini-3-pro-image");
   };
 
   const submit = (e: React.FormEvent) => {
