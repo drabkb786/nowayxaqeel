@@ -313,7 +313,7 @@ export const Route = createFileRoute("/api/pdf")({
             ? `${prompt}\n\n(Preferred font family: ${font})`
             : prompt;
 
-          const doc = await callLLMJson(userPrompt, chosenModel, key);
+          const doc = await draftAndLayout(userPrompt, chosenModel, key);
           if (font && !doc.font) doc.font = font;
           const bytes = await renderPdf(doc);
           const b64 = Buffer.from(bytes).toString("base64");
