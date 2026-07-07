@@ -79,10 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Noway Chat — Multi-Model AI Chat" },
+      { title: "NOWAYxAQEEL GPT — Multi-Model AI Chat" },
       { name: "description", content: "Sign in and chat with GPT and Gemini side-by-side. Your history stays synced across devices." },
-      { name: "author", content: "Noway Chat" },
-      { property: "og:title", content: "Noway Chat" },
+      { name: "author", content: "NOWAYxAQEEL GPT" },
+      { property: "og:title", content: "NOWAYxAQEEL GPT" },
       { property: "og:description", content: "Multi-model AI chat with cloud-saved history." },
 
       { property: "og:type", content: "website" },
