@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import { YoutubeTranscript } from "youtube-transcript";
 
 type Body = {
   messages?: UIMessage[];
@@ -20,6 +21,72 @@ const ALLOWED = new Set([
 const URL_REGEX = /\bhttps?:\/\/[^\s<>"'`)]+/gi;
 const MAX_URLS = 4;
 const PER_URL_CHARS = 8000;
+const TRANSCRIPT_CHAR_LIMIT = 24000;
+
+const YT_HOST_RE = /^(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)$/i;
+
+function extractYouTubeId(rawUrl: string): string | null {
+  try {
+    const u = new URL(rawUrl);
+    if (!YT_HOST_RE.test(u.hostname)) return null;
+    if (u.hostname.toLowerCase().endsWith("youtu.be")) {
+      const id = u.pathname.replace(/^\/+/, "").split("/")[0];
+      return id && /^[\w-]{6,}$/.test(id) ? id : null;
+    }
+    // youtube.com
+    if (u.pathname === "/watch") {
+      const v = u.searchParams.get("v");
+      return v && /^[\w-]{6,}$/.test(v) ? v : null;
+    }
+    const shortsMatch = u.pathname.match(/^\/(shorts|embed|live)\/([\w-]{6,})/);
+    if (shortsMatch) return shortsMatch[2];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function formatTimestamp(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
+
+async function fetchYouTubeTranscript(videoId: string) {
+  try {
+    const items = await YoutubeTranscript.fetchTranscript(videoId);
+    if (!items || items.length === 0) {
+      return { ok: false as const, error: "No transcript items returned." };
+    }
+    // Build a timestamped transcript, decoding basic HTML entities.
+    const decode = (s: string) =>
+      s
+        .replace(/&amp;/g, "&")
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&nbsp;/g, " ");
+    const lines = items.map((it) => {
+      const offsetSec =
+        typeof it.offset === "number" && it.offset > 1000 ? it.offset / 1000 : Number(it.offset ?? 0);
+      return `[${formatTimestamp(offsetSec)}] ${decode(String(it.text ?? "")).trim()}`;
+    });
+    let transcript = lines.join("\n");
+    let truncated = false;
+    if (transcript.length > TRANSCRIPT_CHAR_LIMIT) {
+      transcript = transcript.slice(0, TRANSCRIPT_CHAR_LIMIT);
+      truncated = true;
+    }
+    return { ok: true as const, transcript, truncated, itemCount: items.length };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false as const, error: msg };
+  }
+}
 
 function extractLatestUserText(messages: UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
