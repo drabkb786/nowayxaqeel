@@ -352,7 +352,7 @@ function ChatPage() {
               type="checkbox"
               checked={compare}
               onChange={(e) => setCompare(e.target.checked)}
-              className="accent-[#a56bff]"
+              className="accent-mint"
             />
             Compare
           </label>
