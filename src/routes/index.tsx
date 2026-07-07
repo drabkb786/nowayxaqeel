@@ -533,10 +533,22 @@ function SingleChat({
             {busy ? (
               <button type="button" onClick={stop} className="px-3 py-1.5 rounded-lg bg-white/10 text-xs hover:bg-white/20">Stop</button>
             ) : (
-              <button type="submit" disabled={!input.trim() && !attached} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black text-xs font-semibold disabled:opacity-40">
-                Send ↑
-              </button>
+              <>
+                <select
+                  value={depth}
+                  onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
+                  title="Response depth"
+                  className="text-[11px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2 py-1.5 outline-none cursor-pointer text-white/80"
+                >
+                  <option value="standard" className="bg-[#0b0b12]">Standard</option>
+                  <option value="extended" className="bg-[#0b0b12]">Extended</option>
+                </select>
+                <button type="submit" disabled={!input.trim() && !attached} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black text-xs font-semibold disabled:opacity-40">
+                  Send ↑
+                </button>
+              </>
             )}
+
           </div>
         </div>
       </form>
