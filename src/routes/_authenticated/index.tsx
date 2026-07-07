@@ -1,9 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchAllThreadsWithMessages,
+  createThreadDb,
+  deleteThreadDb,
+  persistMessagesDb,
+} from "@/lib/chat-store";
+
 
 
 export const Route = createFileRoute("/_authenticated/")({
