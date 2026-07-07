@@ -131,7 +131,10 @@ function ChatPage() {
     let cancelled = false;
     (async () => {
       const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
+      if (!u.user) {
+        if (!cancelled) navigate({ to: "/auth", replace: true });
+        return;
+      }
       if (cancelled) return;
       setUserId(u.user.id);
       setUsername(String(u.user.user_metadata?.username ?? u.user.email?.split("@")[0] ?? "user"));
