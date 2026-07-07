@@ -788,7 +788,7 @@ function SingleChat({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
-                placeholder="Message Noway…"
+                placeholder="Message NOWAYxAQEEL…"
                 rows={1}
                 className="flex-1 min-w-0 w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground max-h-48 py-2.5 px-2 leading-relaxed"
               />
