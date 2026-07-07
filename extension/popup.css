@@ -96,6 +96,7 @@ label span {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -108,7 +109,8 @@ textarea {
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-input {
+input,
+select {
   height: 40px;
   padding: 0 11px;
 }
