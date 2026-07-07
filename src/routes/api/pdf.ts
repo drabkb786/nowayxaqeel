@@ -196,17 +196,6 @@ async function draftAndLayout(prompt: string, model: string, key: string): Promi
 
 async function generateImageBytes(prompt: string, key: string): Promise<Uint8Array | null> {
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-async function generateImageBytes(prompt: string, key: string): Promise<Uint8Array | null> {
-  try {
     const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
