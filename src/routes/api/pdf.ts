@@ -565,8 +565,8 @@ async function drawImage(ctx: Ctx, block: Extract<Block, { type: "image" }>, blo
       const ratio = Math.min(maxW / img.width, maxH / img.height);
       const w = img.width * ratio;
       const h = img.height * ratio;
-      const capLines = wrap(caption, ctx.fonts.italic, 9.5, CONTENT_W);
-      const totalH = h + 8 + capLines.length * 12 + 12;
+      const preLines = wrap(caption, ctx.fonts.italic, 9.5, CONTENT_W);
+      const totalH = h + 8 + preLines.length * 12 + 12;
       ensure(ctx, totalH + 6);
       const x = MARGIN + (CONTENT_W - w) / 2;
       const yImg = ctx.y - h;
