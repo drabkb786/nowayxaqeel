@@ -450,7 +450,7 @@ function SingleChat({
           )}
           {messages.map((m) => <MessageBubble key={m.id} m={m} />)}
           {(status === "submitted" || imgBusy) && (
-            <div className="text-xs text-white/40 animate-pulse">{imgBusy ? "🎨 Generating image…" : "Thinking…"}</div>
+            <div className="text-xs text-white/40 animate-pulse">{imgBusy ? "⏳ Generating…" : "Thinking…"}</div>
           )}
           {(error || imgErr) && (
             <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
