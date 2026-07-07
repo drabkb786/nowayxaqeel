@@ -266,7 +266,7 @@ function SingleChat({
     [model, system],
   );
 
-  const { messages, sendMessage, status, error, stop } = useChat({
+  const { messages, setMessages, sendMessage, status, error, stop } = useChat({
     id: threadId,
     messages: initialMessages,
     transport,
@@ -274,30 +274,71 @@ function SingleChat({
 
   const [input, setInput] = useState("");
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
+  const [imgBusy, setImgBusy] = useState(false);
+  const [imgErr, setImgErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const onMsgRef = useRef(onMessagesChange);
   useEffect(() => { onMsgRef.current = onMessagesChange; });
   useEffect(() => { onMsgRef.current(messages); }, [messages]);
-  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, status, imgBusy]);
   useEffect(() => { textareaRef.current?.focus(); }, [threadId, status]);
 
-  const busy = status === "submitted" || status === "streaming";
+  const busy = status === "submitted" || status === "streaming" || imgBusy;
+
+  const generateImage = async (prompt: string) => {
+    const userMsg: UIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: prompt }],
+    };
+    setMessages([...messages, userMsg]);
+    setImgBusy(true);
+    setImgErr(null);
+    try {
+      const res = await fetch("/api/image", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt, model }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { b64_json, mediaType } = (await res.json()) as { b64_json: string; mediaType: string };
+      const dataUrl = `data:${mediaType};base64,${b64_json}`;
+      const asstMsg: UIMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        parts: [{ type: "text", text: `![generated image](${dataUrl})` }],
+      };
+      setMessages((prev) => [...prev, asstMsg]);
+    } catch (e) {
+      setImgErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImgBusy(false);
+    }
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (busy || (!input.trim() && !attached)) return;
+    const prompt = input.trim();
+    if (isImageModel(model)) {
+      if (!prompt) return;
+      setInput("");
+      setAttached(null);
+      void generateImage(prompt);
+      return;
+    }
     if (attached && attached.type.startsWith("image/")) {
       sendMessage({
         role: "user",
         parts: [
-          ...(input.trim() ? [{ type: "text" as const, text: input.trim() }] : []),
+          ...(prompt ? [{ type: "text" as const, text: prompt }] : []),
           { type: "file" as const, mediaType: attached.type, url: attached.dataUrl, filename: attached.name },
         ],
       });
     } else {
-      sendMessage({ text: input.trim() });
+      sendMessage({ text: prompt });
     }
     setInput("");
     setAttached(null);
