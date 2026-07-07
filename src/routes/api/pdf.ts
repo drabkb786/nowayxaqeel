@@ -123,7 +123,7 @@ async function renderPdf(doc: Doc): Promise<Uint8Array> {
     }
   };
 
-  const wrap = (text: string, font: Awaited<ReturnType<typeof fonts.regular>>, size: number, maxW: number): string[] => {
+  const wrap = (text: string, font: PDFFont, size: number, maxW: number): string[] => {
     const words = text.split(/\s+/);
     const lines: string[] = [];
     let line = "";
