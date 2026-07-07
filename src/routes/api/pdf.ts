@@ -24,7 +24,25 @@ function pickPdfModel(): string {
   return "openai/gpt-5-mini";
 }
 
-const SYSTEM = `You are an expert document layout assistant. Return ONLY a JSON object (no prose, no code fences) with this exact shape:
+const DRAFT_SYSTEM = `You are a senior writer. The user will give a request for a document (PDF).
+
+Step 1 — ANALYZE: silently figure out exactly what the user wants: topic, purpose, audience, tone, language (match the user's language — if they write Urdu/Roman-Urdu, reply in the same), and required sections.
+
+Step 2 — DRAFT: produce a COMPLETE, well-structured draft of the full document. Not a stub, not an outline — the finished content the user can read end-to-end.
+
+Output format (plain text, no code fences):
+- First line: TITLE: <the document title>
+- Then the full body using simple markdown-like structure:
+  ## Section heading
+  ### Sub-section
+  Normal paragraph text. Use **bold** and *italic* for emphasis only.
+  - bullet item
+  1. numbered item
+- Do NOT include the title again as a heading.
+- Do NOT include images or image placeholders.
+- Write enough substantial content to fully satisfy the request.`;
+
+const LAYOUT_SYSTEM = `You convert a finished text draft into a strict JSON layout for a PDF renderer. Return ONLY a JSON object (no prose, no code fences) with this exact shape:
 {
   "title": "Main document title",
   "font": "Helvetica" | "Times" | "Courier",
@@ -33,20 +51,19 @@ const SYSTEM = `You are an expert document layout assistant. Return ONLY a JSON 
     {"type":"h3","text":"Sub-section"},
     {"type":"p","runs":[{"text":"Normal "},{"text":"bold","bold":true},{"text":" and "},{"text":"italic","italic":true},{"text":" text."}]},
     {"type":"ul","items":["bullet one","bullet two"]},
-    {"type":"ol","items":["step one","step two"]},
-    {"type":"p","runs":[{"text":"Detailed explanatory text instead of generated images."}]}
+    {"type":"ol","items":["step one","step two"]}
   ]
 }
 
 Rules:
-- Never emit raw markdown symbols (#, ##, **, *, _, -) in any text field. Convert emphasis into run.bold / run.italic.
-- The document TITLE goes in the top-level "title" field ONLY — do NOT repeat it as an h1 block. Never use "h1" in blocks.
-- Use h2 for major sections, h3 for sub-sections.
-- Use ul for bullet lists, ol for numbered lists — never inline hyphens or "•".
-- Split a paragraph into multiple runs whenever emphasis (bold/italic) changes.
-- Do NOT include image blocks. Generate a complete text-only PDF so the request finishes reliably.
-- Produce enough substantial content to fully answer the user's request; do not stop at a stub.
-- Font mapping: Arial/Roboto/Helvetica/sans-serif → "Helvetica"; Times/"Times New Roman"/serif → "Times"; Courier/mono → "Courier".`;
+- Preserve ALL content from the draft. Do not summarize or drop paragraphs.
+- Never emit raw markdown symbols (#, ##, **, *, _, -) in any text field. Convert **bold** → run.bold, *italic* → run.italic.
+- Title comes from the draft's TITLE line and goes ONLY in the top-level "title" field. Never use "h1".
+- Use h2 for ## and h3 for ###.
+- Convert "- item" lines into an ul block; "1. item" lines into an ol block.
+- Split a paragraph into multiple runs whenever emphasis changes.
+- No image blocks.
+- Font mapping: Arial/Roboto/Helvetica/sans-serif → "Helvetica"; Times/serif → "Times"; Courier/mono → "Courier".`;
 
 function mapFont(name?: string): "Helvetica" | "Times" | "Courier" {
   const n = (name || "").toLowerCase();
@@ -55,16 +72,22 @@ function mapFont(name?: string): "Helvetica" | "Times" | "Courier" {
   return "Helvetica";
 }
 
-async function callLLMJson(prompt: string, model: string, key: string): Promise<Doc> {
+async function callLLM(
+  systemMsg: string,
+  userMsg: string,
+  model: string,
+  key: string,
+  jsonMode: boolean,
+): Promise<string> {
   const isOpenAI = model.startsWith("openai/");
   const body: Record<string, unknown> = {
     model,
     messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: prompt },
+      { role: "system", content: systemMsg },
+      { role: "user", content: userMsg },
     ],
-    response_format: { type: "json_object" },
   };
+  if (jsonMode) body.response_format = { type: "json_object" };
   if (isOpenAI) body.service_tier = "priority";
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -73,12 +96,31 @@ async function callLLMJson(prompt: string, model: string, key: string): Promise<
   });
   if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = json.choices?.[0]?.message?.content ?? "";
-  const cleaned = content.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-  const parsed = JSON.parse(cleaned) as Doc;
-  if (!parsed || !Array.isArray(parsed.blocks)) throw new Error("bad doc shape");
-  return parsed;
+  return (json.choices?.[0]?.message?.content ?? "").trim();
 }
+
+async function draftAndLayout(prompt: string, model: string, key: string): Promise<Doc> {
+  // Step 1: analyze + full draft
+  const draft = await callLLM(DRAFT_SYSTEM, prompt, model, key, false);
+  if (!draft) throw new Error("Empty draft from model");
+
+  // Step 2: convert draft to strict JSON layout (retry once on parse failure)
+  const layoutUser = `Convert this finished draft into the required JSON layout. Preserve every section and paragraph.\n\n---DRAFT---\n${draft}`;
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await callLLM(LAYOUT_SYSTEM, layoutUser, model, key, true);
+      const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+      const parsed = JSON.parse(cleaned) as Doc;
+      if (!parsed || !Array.isArray(parsed.blocks)) throw new Error("bad doc shape");
+      return parsed;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw new Error(`Layout step failed: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+}
+
 
 async function pickFonts(pdf: PDFDocument, family: "Helvetica" | "Times" | "Courier") {
   const { StandardFonts } = await loadPdfLib();
@@ -271,7 +313,7 @@ export const Route = createFileRoute("/api/pdf")({
             ? `${prompt}\n\n(Preferred font family: ${font})`
             : prompt;
 
-          const doc = await callLLMJson(userPrompt, chosenModel, key);
+          const doc = await draftAndLayout(userPrompt, chosenModel, key);
           if (font && !doc.font) doc.font = font;
           const bytes = await renderPdf(doc);
           const b64 = Buffer.from(bytes).toString("base64");
