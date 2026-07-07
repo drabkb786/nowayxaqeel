@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
-import { createLovableGateway } from "@/lib/ai-gateway.server";
 
 type Body = {
   messages?: UIMessage[];
@@ -171,6 +170,7 @@ Extra user system prompt (may be empty):
 ${(body.system ?? "").trim()}`;
 
         try {
+          const { createLovableGateway } = await import("@/lib/ai-gateway.server");
           const gateway = createLovableGateway(key);
           const result = streamText({
             model: gateway(model),

@@ -77,6 +77,14 @@ const LS_MODEL_A = "noway.chat.modelA.v1";
 const LS_MODEL_B = "noway.chat.modelB.v1";
 const LS_COMPARE = "noway.chat.compare.v1";
 const LS_THEME = "noway.chat.theme.v1";
+const AUTH_TIMEOUT_MS = 5_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), ms)),
+  ]);
+}
 
 const SUGGESTIONS = [
   { icon: PenLine, title: "Ek short story likho", prompt: "Ek chhoti si inspiring story likho, 200 words me." },
@@ -130,21 +138,25 @@ function ChatPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
+      const userResult = await withTimeout(supabase.auth.getUser(), AUTH_TIMEOUT_MS);
+      const user = userResult?.data.user;
+      if (!user) {
+        if (!cancelled) navigate({ to: "/auth", replace: true });
+        return;
+      }
       if (cancelled) return;
-      setUserId(u.user.id);
-      setUsername(String(u.user.user_metadata?.username ?? u.user.email?.split("@")[0] ?? "user"));
+      setUserId(user.id);
+      setUsername(String(user.user_metadata?.username ?? user.email?.split("@")[0] ?? "user"));
 
       let list: Thread[] = [];
       try {
-        list = await fetchAllThreadsWithMessages(u.user.id);
+        list = await fetchAllThreadsWithMessages(user.id);
       } catch (e) {
         console.error("Failed to load chat history", e);
       }
       if (list.length === 0) {
         const t = newThread();
-        try { await createThreadDb(u.user.id, t.id); } catch (e) { console.error(e); }
+        try { await createThreadDb(user.id, t.id); } catch (e) { console.error(e); }
         list = [t];
       }
       if (cancelled) return;
