@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { PDFDocument, PDFFont, PDFImage } from "pdf-lib";
+import type { PDFDocument, PDFFont } from "pdf-lib";
 
 // Lazy-load pdf-lib inside the handler.
 // Importing it at module scope causes the whole SSR entry to crash on
@@ -20,6 +20,20 @@ type Block =
 
 type Doc = { title: string; font?: string; blocks: Block[] };
 
+const PDF_TEXT_MODELS = new Set([
+  "openai/gpt-5.5",
+  "openai/gpt-5",
+  "openai/gpt-5-mini",
+  "openai/gpt-5-nano",
+  "google/gemini-2.5-pro",
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-flash-lite",
+]);
+
+function pickPdfModel(model?: string): string {
+  return model && PDF_TEXT_MODELS.has(model) ? model : "openai/gpt-5-mini";
+}
+
 const SYSTEM = `You are an expert document layout assistant. Return ONLY a JSON object (no prose, no code fences) with this exact shape:
 {
   "title": "Main document title",
@@ -30,7 +44,7 @@ const SYSTEM = `You are an expert document layout assistant. Return ONLY a JSON 
     {"type":"p","runs":[{"text":"Normal "},{"text":"bold","bold":true},{"text":" and "},{"text":"italic","italic":true},{"text":" text."}]},
     {"type":"ul","items":["bullet one","bullet two"]},
     {"type":"ol","items":["step one","step two"]},
-    {"type":"image","prompt":"detailed visual description of the illustration to generate","caption":"Optional caption text"}
+    {"type":"p","runs":[{"text":"Detailed explanatory text instead of generated images."}]}
   ]
 }
 
@@ -40,7 +54,7 @@ Rules:
 - Use h2 for major sections, h3 for sub-sections.
 - Use ul for bullet lists, ol for numbered lists — never inline hyphens or "•".
 - Split a paragraph into multiple runs whenever emphasis (bold/italic) changes.
-- Include 1–3 "image" blocks when the topic benefits from visuals (tutorials, guides, product/place/nature/history/how-to). The "prompt" MUST be a rich, self-contained visual description (subject, style, colors, lighting, composition) suitable for an image generation model. Skip images only for very short or purely abstract answers.
+- Do NOT include image blocks. Generate a complete text-only PDF so the request finishes reliably.
 - Produce enough substantial content to fully answer the user's request; do not stop at a stub.
 - Font mapping: Arial/Roboto/Helvetica/sans-serif → "Helvetica"; Times/"Times New Roman"/serif → "Times"; Courier/mono → "Courier".`;
 
@@ -74,32 +88,6 @@ async function callLLMJson(prompt: string, model: string, key: string): Promise<
   const parsed = JSON.parse(cleaned) as Doc;
   if (!parsed || !Array.isArray(parsed.blocks)) throw new Error("bad doc shape");
   return parsed;
-}
-
-async function generateImage(prompt: string, key: string): Promise<Uint8Array | null> {
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [{ role: "user", content: prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      choices?: Array<{ message?: { images?: Array<{ image_url?: { url?: string } }> } }>;
-    };
-    const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!url) return null;
-    // url is a data:image/png;base64,... URL
-    const m = url.match(/^data:image\/(png|jpeg|jpg);base64,(.+)$/i);
-    if (!m) return null;
-    return Uint8Array.from(Buffer.from(m[2], "base64"));
-  } catch {
-    return null;
-  }
 }
 
 async function pickFonts(pdf: PDFDocument, family: "Helvetica" | "Times" | "Courier") {
@@ -140,44 +128,17 @@ function clean(s: string): string {
     .replace(/[^\x00-\xFF]/g, "?");
 }
 
-async function renderPdf(doc: Doc, apiKey: string): Promise<Uint8Array> {
+async function renderPdf(doc: Doc): Promise<Uint8Array> {
   const { PDFDocument, rgb } = await loadPdfLib();
   const pdf = await PDFDocument.create();
   const family = mapFont(doc.font);
   const fonts = await pickFonts(pdf, family);
-
-  // Pre-generate images in parallel so PDF layout is not serialised behind them.
-  const imageBlocks = doc.blocks.filter((b): b is Extract<Block, { type: "image" }> => b.type === "image");
-  const imageResults = await Promise.all(
-    imageBlocks.map((b) => generateImage(b.prompt, apiKey)),
-  );
-  const embedded = new Map<Block, PDFImage | null>();
-  for (let i = 0; i < imageBlocks.length; i++) {
-    const bytes = imageResults[i];
-    if (!bytes) {
-      embedded.set(imageBlocks[i], null);
-      continue;
-    }
-    try {
-      // gemini image responses are PNG
-      const img = await pdf.embedPng(bytes);
-      embedded.set(imageBlocks[i], img);
-    } catch {
-      try {
-        const img = await pdf.embedJpg(bytes);
-        embedded.set(imageBlocks[i], img);
-      } catch {
-        embedded.set(imageBlocks[i], null);
-      }
-    }
-  }
 
   const PAGE_W = 612; // US Letter
   const PAGE_H = 792;
   const MARGIN = 54; // 0.75"
   const CONTENT_W = PAGE_W - MARGIN * 2;
   const black = rgb(0.08, 0.08, 0.1);
-  const muted = rgb(0.42, 0.42, 0.48);
   const accent = rgb(0.34, 0.22, 0.82);
 
   // Typography — single-spaced with comfortable leading (~1.35x)
