@@ -138,6 +138,7 @@ function clean(s: string): string {
 }
 
 async function renderPdf(doc: Doc, apiKey: string): Promise<Uint8Array> {
+  const { PDFDocument, rgb } = await loadPdfLib();
   const pdf = await PDFDocument.create();
   const family = mapFont(doc.font);
   const fonts = await pickFonts(pdf, family);
