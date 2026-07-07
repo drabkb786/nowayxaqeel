@@ -138,8 +138,8 @@ async function renderPdf(doc: Doc): Promise<Uint8Array> {
     return lines;
   };
 
-  const drawHeading = async (text: string, size: number, gapBefore: number, gapAfter: number) => {
-    const f = await fonts.bold;
+  const drawHeading = (text: string, size: number, gapBefore: number, gapAfter: number) => {
+    const f = fonts.bold;
     const lines = wrap(clean(text), f, size, CONTENT_W);
     ensureSpace(gapBefore + size + 4);
     y -= gapBefore;
