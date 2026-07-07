@@ -205,6 +205,17 @@ async function generateImageBytes(prompt: string, key: string): Promise<Uint8Arr
         modalities: ["image", "text"],
       }),
     });
+async function generateImageBytes(prompt: string, key: string): Promise<Uint8Array | null> {
+  try {
+    const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+    }, 45_000);
     if (!res.ok) return null;
     const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
     const b64 = json.data?.[0]?.b64_json;
@@ -218,7 +229,7 @@ async function generateImageBytes(prompt: string, key: string): Promise<Uint8Arr
   }
 }
 
-async function hydrateImages(doc: Doc, key: string, cap = 6): Promise<Map<number, Uint8Array>> {
+async function hydrateImages(doc: Doc, key: string, cap = 3): Promise<Map<number, Uint8Array>> {
   const targets: number[] = [];
   doc.blocks.forEach((b, i) => { if (b.type === "image" && b.prompt) targets.push(i); });
   const picked = targets.slice(0, cap);
