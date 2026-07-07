@@ -342,13 +342,20 @@ export const Route = createFileRoute("/api/pdf")({
           const key = process.env.LOVABLE_API_KEY;
           if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
 
-          const chosenModel = model || "openai/gpt-5.5";
+          const chosenModel = model || "google/gemini-3-flash-preview";
           const userPrompt = font
             ? `${prompt}\n\n(Preferred font family: ${font})`
             : prompt;
 
           const doc = await callLLMJson(userPrompt, chosenModel, key);
           if (font && !doc.font) doc.font = font;
+          // Cap image blocks to at most 2 to keep total time under the CF 100s limit.
+          let imgCount = 0;
+          doc.blocks = doc.blocks.filter((b) => {
+            if (b.type !== "image") return true;
+            imgCount++;
+            return imgCount <= 2;
+          });
           const bytes = await renderPdf(doc, key);
           const b64 = Buffer.from(bytes).toString("base64");
           const filename = (doc.title || "document")
