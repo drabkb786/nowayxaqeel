@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">N</div>
+      <div>
+        <div class="brand">Noway ID</div>
+        <div class="sub">Fake identity · 250+ countries</div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <input id="search" type="text" placeholder="Search country…" />
+      <select id="country"></select>
+      <button id="gen">Generate ↻</button>
+    </div>
+
+    <div class="hero" id="hero"></div>
+
+    <section>
+      <div class="label">Personal</div>
+      <div class="grid" id="personal"></div>
+    </section>
+
+    <section>
+      <div class="label">Address</div>
+      <div class="grid" id="address"></div>
+    </section>
+
+    <section>
+      <div class="label">Test Card · Luhn-valid · non-chargeable</div>
+      <div class="grid" id="card"></div>
+    </section>
+
+    <footer>created by noway · fake data for testing only</footer>
+  </div>
+
+  <script src="countries.js"></script>
+  <script src="generator.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

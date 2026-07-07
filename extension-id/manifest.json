@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Noway ID",
+  "version": "1.0.0",
+  "description": "Generate realistic fake identities — name, address, postal code, phone, email and test cards for 250+ countries.",
+  "action": { "default_popup": "popup.html", "default_title": "Noway ID" },
+  "icons": { "48": "icon.png", "128": "icon.png" }
+}

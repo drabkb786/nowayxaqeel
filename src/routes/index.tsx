@@ -111,6 +111,27 @@ function Page() {
           </button>
         </div>
 
+        <div className="mt-4">
+          <button
+            onClick={() => {
+              fetch("/noway-id.zip")
+                .then((r) => { if (!r.ok) throw new Error("Download failed"); return r.blob(); })
+                .then((blob) => {
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = "noway-id.zip";
+                  a.click();
+                  URL.revokeObjectURL(a.href);
+                })
+                .catch((e) => alert(e.message));
+            }}
+            className="text-xs px-4 py-2 rounded-lg border border-white/15 bg-white/[0.03] hover:bg-white/[0.08] text-white/80 hover:text-white transition"
+          >
+            ↓ Download Chrome Extension (.zip)
+          </button>
+          <span className="ml-3 text-[10px] text-white/30">Unzip → chrome://extensions → Developer mode → Load unpacked</span>
+        </div>
+
         {/* Identity flag row */}
         <div className="mt-8 flex items-center gap-4 p-5 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent">
           <div className="text-4xl font-mono font-bold text-white/90">{identity.country.code}</div>
