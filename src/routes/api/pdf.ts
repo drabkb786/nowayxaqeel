@@ -163,11 +163,11 @@ async function callLLM(
   };
   if (jsonMode) body.response_format = { type: "json_object" };
   if (isOpenAI) body.service_tier = "priority";
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, 90_000);
   if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   return (json.choices?.[0]?.message?.content ?? "").trim();
