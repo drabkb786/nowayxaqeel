@@ -679,7 +679,7 @@ function SingleChat({
             <div className="pt-10 sm:pt-16 pb-8 animate-in fade-in duration-500">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mint/10 border border-mint/30 text-mint text-[11px] tracking-widest uppercase font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-mint animate-pulse" />
-                Noway · Online
+                NOWAYxAQEEL · Online
               </div>
               <h1 className="mt-5 font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[0.95] bg-gradient-to-br from-mint via-primary to-mint-glow bg-clip-text text-transparent">
                 Hello, @{username}
