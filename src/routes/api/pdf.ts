@@ -153,7 +153,7 @@ async function renderPdf(doc: Doc): Promise<Uint8Array> {
 
   // Title
   if (doc.title) {
-    const f = await fonts.bold;
+    const f = fonts.bold;
     const size = 22;
     const lines = wrap(clean(doc.title), f, size, CONTENT_W);
     for (const line of lines) {
