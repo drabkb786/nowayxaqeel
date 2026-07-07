@@ -784,10 +784,12 @@ function SingleChat({
       </div>
 
       {/* Floating pill composer */}
-      <form onSubmit={submit} className="px-4 sm:px-6 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
-        <div className="max-w-3xl mx-auto">
+      <form onSubmit={submit} className="px-4 sm:px-6 pb-5 pt-3 bg-gradient-to-t from-background via-background/95 to-transparent">
+        <div className="max-w-3xl mx-auto relative group">
+          {/* aurora glow ring */}
+          <div className="pointer-events-none absolute -inset-[2px] rounded-[32px] bg-[linear-gradient(120deg,var(--mint),var(--iris),var(--violet))] opacity-0 group-focus-within:opacity-60 blur-xl transition-opacity duration-500" />
           {attached && (
-            <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-muted text-xs text-foreground max-w-fit mx-auto shadow-sm">
+            <div className="mb-2 relative flex items-center gap-2 px-3 py-2 rounded-xl bg-muted text-xs text-foreground max-w-fit mx-auto shadow-sm">
               <Paperclip className="w-3.5 h-3.5" />
               <span className="truncate max-w-[200px]">{attached.name}</span>
               <button type="button" onClick={() => setAttached(null)} className="text-muted-foreground hover:text-foreground">
@@ -795,7 +797,7 @@ function SingleChat({
               </button>
             </div>
           )}
-          <div className="flex items-end gap-1.5 rounded-[28px] border border-border bg-muted/60 backdrop-blur-xl px-2 py-2 shadow-lg shadow-black/5 dark:shadow-black/40 focus-within:border-ring/50 transition-colors overflow-hidden">
+          <div className="relative flex items-end gap-1.5 rounded-[28px] border border-border bg-card/80 backdrop-blur-2xl px-2 py-2 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] focus-within:border-mint/40 transition-colors overflow-hidden">
             <label className="cursor-pointer w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-background/60 transition shrink-0" title="Attach image">
               <Paperclip className="w-5 h-5" />
               <input type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
