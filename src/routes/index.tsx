@@ -33,6 +33,11 @@ const MODELS = [
 
 const isImageModel = (id: string) => MODELS.find((m) => m.id === id)?.kind === "image";
 
+// Auto-detect: does the user prompt ask for an actual picture/image?
+const IMAGE_INTENT = /\b(image|picture|photo|photograph|pic|poster|logo|icon|illustration|drawing|sketch|painting|render|artwork|wallpaper|thumbnail|avatar|banner|scene|portrait|meme|design|3d\s*render|tasveer|tasvir|photo\s*bana|picture\s*bana|image\s*bana|banao|bana\s*do|bana\s*ke|draw|paint|generate\s+(an?\s+)?(image|picture|photo|logo|icon))\b/i;
+const CODE_INTENT = /\b(svg|html|css|code|snippet|script|component|function|json|xml|markdown|program)\b/i;
+const looksLikeImageRequest = (text: string) => IMAGE_INTENT.test(text) && !CODE_INTENT.test(text);
+
 type Thread = { id: string; title: string; updatedAt: number; messages: UIMessage[] };
 
 const LS_THREADS = "noway.chat.threads.v1";
@@ -287,7 +292,7 @@ function SingleChat({
 
   const busy = status === "submitted" || status === "streaming" || imgBusy;
 
-  const generateImage = async (prompt: string) => {
+  const generateImage = async (prompt: string, imgModel: string = model) => {
     const userMsg: UIMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -300,7 +305,7 @@ function SingleChat({
       const res = await fetch("/api/image", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt, model }),
+        body: JSON.stringify({ prompt, model: imgModel }),
       });
       if (!res.ok) throw new Error(await res.text());
       const { b64_json, mediaType } = (await res.json()) as { b64_json: string; mediaType: string };
@@ -322,11 +327,14 @@ function SingleChat({
     e.preventDefault();
     if (busy || (!input.trim() && !attached)) return;
     const prompt = input.trim();
-    if (isImageModel(model)) {
+    // Auto-detect image request even on text models
+    const wantsImage = isImageModel(model) || looksLikeImageRequest(prompt);
+    if (wantsImage) {
       if (!prompt) return;
       setInput("");
       setAttached(null);
-      void generateImage(prompt);
+      const imgModel = isImageModel(model) ? model : "google/gemini-3-pro-image";
+      void generateImage(prompt, imgModel);
       return;
     }
     if (attached && attached.type.startsWith("image/")) {
