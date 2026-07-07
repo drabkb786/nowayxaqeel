@@ -278,12 +278,19 @@ function SingleChat({
   system: string;
   onMessagesChange: (m: UIMessage[]) => void;
 }) {
+  const [depth, setDepth] = useState<"standard" | "extended">("standard");
   const transport = useMemo(
     () => new DefaultChatTransport({
       api: "/api/chat",
-      body: () => ({ model, system }),
+      body: () => {
+        const depthDirective =
+          depth === "extended"
+            ? "\n\nRESPONSE DEPTH: EXTENDED. Give an exhaustively detailed, deeply thorough response. Cover background, nuances, edge cases, examples, step-by-step reasoning, comparisons, pros/cons, and practical tips. Prefer long-form structured sections."
+            : "\n\nRESPONSE DEPTH: STANDARD. Give a clear, detailed but focused answer — well structured, not overly long.";
+        return { model, system: (system ?? "") + depthDirective };
+      },
     }),
-    [model, system],
+    [model, system, depth],
   );
 
   // Freeze initial messages per thread so parent-persist updates don't feed back into useChat
@@ -298,6 +305,7 @@ function SingleChat({
   const [attached, setAttached] = useState<{ name: string; dataUrl: string; type: string } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imgErr, setImgErr] = useState<string | null>(null);
+
   const [pending, setPending] = useState<{
     prompt: string;
     url: string;
@@ -525,10 +533,22 @@ function SingleChat({
             {busy ? (
               <button type="button" onClick={stop} className="px-3 py-1.5 rounded-lg bg-white/10 text-xs hover:bg-white/20">Stop</button>
             ) : (
-              <button type="submit" disabled={!input.trim() && !attached} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black text-xs font-semibold disabled:opacity-40">
-                Send ↑
-              </button>
+              <>
+                <select
+                  value={depth}
+                  onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
+                  title="Response depth"
+                  className="text-[11px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2 py-1.5 outline-none cursor-pointer text-white/80"
+                >
+                  <option value="standard" className="bg-[#0b0b12]">Standard</option>
+                  <option value="extended" className="bg-[#0b0b12]">Extended</option>
+                </select>
+                <button type="submit" disabled={!input.trim() && !attached} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#a56bff] to-[#22d3ee] text-black text-xs font-semibold disabled:opacity-40">
+                  Send ↑
+                </button>
+              </>
             )}
+
           </div>
         </div>
       </form>
