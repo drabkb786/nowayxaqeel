@@ -25,7 +25,7 @@ import {
   ImageIcon,
   X,
   Globe,
-  Search,
+  
   Bell,
   Edit3,
   FileText as FileTextIcon,
@@ -331,15 +331,6 @@ function ChatPage() {
           </button>
         </div>
 
-        <div className={`px-3 mt-3 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-foreground/40" />
-            <input
-              placeholder="Search chats..."
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-sidebar-accent/50 border border-sidebar-border outline-none focus:border-mint/40 text-sidebar-foreground placeholder:text-sidebar-foreground/40"
-            />
-          </div>
-        </div>
 
         <div className={`px-4 pt-4 pb-1 text-[10px] tracking-widest uppercase text-sidebar-foreground/40 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           Recent
@@ -385,21 +376,6 @@ function ChatPage() {
             </button>
           </div>
 
-          <div className={`relative overflow-hidden rounded-2xl p-4 border border-mint/25 bg-gradient-to-br from-mint/10 via-mint/5 to-transparent ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-            <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-mint/20 blur-3xl" />
-            <div className="relative">
-              <div className="flex items-center gap-2 text-sm font-semibold text-mint">
-                <Zap className="w-4 h-4" />
-                Upgrade to Pro
-              </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-sidebar-foreground/60">
-                Unlock advanced features and faster responses.
-              </p>
-              <button className="mt-3 w-full py-2 rounded-xl text-xs font-semibold text-black bg-gradient-to-r from-mint to-mint-glow hover:brightness-110 transition">
-                ⚡ Upgrade Now
-              </button>
-            </div>
-          </div>
 
           <Link
             to="/id"
