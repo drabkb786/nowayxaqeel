@@ -1348,11 +1348,19 @@ function SingleChat({
   useEffect(() => {
     submitRef.current = () => {
       if (busy) return;
-      if (!input.trim() && !attached) return;
+      const trimmed = input.trim();
+      if (!trimmed && !attached) return;
+      // Guard against double-fire: silence timer + late speech-recognition
+      // events can both call submitRef within a few hundred ms with the same
+      // text. Block a repeat of the same text within 3 seconds.
+      const now = Date.now();
+      if (lastSubmitRef.current.text === trimmed && now - lastSubmitRef.current.at < 3000) return;
+      lastSubmitRef.current = { text: trimmed, at: now };
       const fakeEvt = { preventDefault: () => {} } as React.FormEvent;
       submit(fakeEvt);
     };
   });
+
 
 
   return (
