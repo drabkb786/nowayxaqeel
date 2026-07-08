@@ -796,9 +796,15 @@ function SingleChat({
 
       const AudioCtor = (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
       if (!AudioCtor) throw new Error("No AudioContext");
-      const ctx = new AudioCtor({ sampleRate: 24000 });
-      ttsAudioCtxRef.current = ctx;
+      // Reuse a single persistent AudioContext — creating a new one after the
+      // user gesture window closes leaves it suspended and silently silent.
+      let ctx = ttsAudioCtxRef.current;
+      if (!ctx || ctx.state === "closed") {
+        ctx = new AudioCtor({ sampleRate: 24000 });
+        ttsAudioCtxRef.current = ctx;
+      }
       if (ctx.state === "suspended") { try { await ctx.resume(); } catch { /* ignore */ } }
+
 
       let playhead = 0;
       let pending = new Uint8Array(0);
