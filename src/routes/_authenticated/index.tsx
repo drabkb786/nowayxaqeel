@@ -605,13 +605,20 @@ function SingleChat({
   const [research] = useState(true);
   const transport = useMemo(
     () => new DefaultChatTransport({
-      api: research ? "/api/research" : "/api/chat",
-      body: () => {
-        const depthDirective =
-          depth === "extended"
+      api: "/api/chat",
+      prepareSendMessagesRequest: ({ api, body, messages }) => {
+        const live = liveModeRef.current;
+        const useResearch = research && !live;
+        const depthDirective = live
+          ? "\n\nRESPONSE MODE: VOICE. Reply in 1-3 short spoken sentences, plain conversational text (no markdown, no lists, no code). If the user spoke Urdu or Roman Urdu, reply in the same script and register they used."
+          : depth === "extended"
             ? "\n\nRESPONSE DEPTH: EXTENDED. Give an exhaustively detailed, deeply thorough response. Cover background, nuances, edge cases, examples, step-by-step reasoning, comparisons, pros/cons, and practical tips. Prefer long-form structured sections."
             : "\n\nRESPONSE DEPTH: STANDARD. Give a clear, detailed but focused answer — well structured, not overly long.";
-        return { model, system: (system ?? "") + depthDirective };
+        const activeModel = live ? "openai/gpt-5.5" : model;
+        return {
+          api: useResearch ? "/api/research" : (api ?? "/api/chat"),
+          body: { ...(body ?? {}), messages, model: activeModel, system: (system ?? "") + depthDirective, live },
+        };
       },
     }),
     [model, system, depth, research],
