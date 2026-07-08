@@ -376,21 +376,6 @@ function ChatPage() {
             </button>
           </div>
 
-          <div className={`relative overflow-hidden rounded-2xl p-4 border border-mint/25 bg-gradient-to-br from-mint/10 via-mint/5 to-transparent ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-            <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-mint/20 blur-3xl" />
-            <div className="relative">
-              <div className="flex items-center gap-2 text-sm font-semibold text-mint">
-                <Zap className="w-4 h-4" />
-                Upgrade to Pro
-              </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-sidebar-foreground/60">
-                Unlock advanced features and faster responses.
-              </p>
-              <button className="mt-3 w-full py-2 rounded-xl text-xs font-semibold text-black bg-gradient-to-r from-mint to-mint-glow hover:brightness-110 transition">
-                ⚡ Upgrade Now
-              </button>
-            </div>
-          </div>
 
           <Link
             to="/id"
