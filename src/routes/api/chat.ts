@@ -260,7 +260,7 @@ export const Route = createFileRoute("/api/chat")({
             model: gateway(model),
             system: sys,
             messages: await convertToModelMessages(body.messages),
-            ...(body.live ? { maxOutputTokens: 400 } : {}),
+            ...(body.live && !isFastCapable ? { maxOutputTokens: 400 } : {}),
             ...(body.live && isFastCapable
               ? { providerOptions: { lovable: { service_tier: "priority" } } }
               : {}),
