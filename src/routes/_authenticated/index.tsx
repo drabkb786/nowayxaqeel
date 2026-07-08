@@ -672,19 +672,22 @@ function SingleChat({
   const [micErr, setMicErr] = useState<string | null>(null);
   const [micNeedsNewTab, setMicNeedsNewTab] = useState(false);
   const [micPrompt, setMicPrompt] = useState<null | { live: boolean; embed: boolean; denied: boolean }>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const vadRafRef = useRef<number | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const pcmChunksRef = useRef<Float32Array[]>([]);
+  const pcmSampleRateRef = useRef<number>(48000);
+  const vadStateRef = useRef<{ lastVoice: number; hadVoice: boolean }>({ lastVoice: 0, hadVoice: false });
+  const pendingSubmitRef = useRef(false);
+  const SEGMENT_MS = 4000;
+  const SILENCE_MS = 1200;
+  const TARGET_SR = 16000;
   const recordingRef = useRef(false);
   const liveModeRef = useRef(false);
   const submitRef = useRef<(() => void) | null>(null);
-  const pendingSubmitRef = useRef(false);
-  const SEGMENT_MS = 4000;
-  const SILENCE_MS = 1500;
 
   const isInsideFrame = () => {
     try {
@@ -735,26 +738,59 @@ function SingleChat({
   const stopMicStream = () => {
     audioStreamRef.current?.getTracks().forEach((t) => t.stop());
     audioStreamRef.current = null;
-    if (vadRafRef.current !== null) { cancelAnimationFrame(vadRafRef.current); vadRafRef.current = null; }
+    if (processorRef.current) { try { processorRef.current.disconnect(); } catch { /* ignore */ } processorRef.current = null; }
+    if (sourceNodeRef.current) { try { sourceNodeRef.current.disconnect(); } catch { /* ignore */ } sourceNodeRef.current = null; }
     if (audioCtxRef.current) { try { void audioCtxRef.current.close(); } catch { /* ignore */ } audioCtxRef.current = null; }
-    analyserRef.current = null;
     if (segmentTimerRef.current) { clearTimeout(segmentTimerRef.current); segmentTimerRef.current = null; }
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    pcmChunksRef.current = [];
   };
 
-  const pickMime = () => {
-    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
-    for (const c of candidates) {
-      if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c)) return c;
+  // Downsample Float32 PCM to targetRate (naive decimation is fine for speech at 16k).
+  const downsample = (input: Float32Array, inRate: number, outRate: number): Float32Array => {
+    if (outRate >= inRate) return input;
+    const ratio = inRate / outRate;
+    const outLen = Math.floor(input.length / ratio);
+    const out = new Float32Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      const start = Math.floor(i * ratio);
+      const end = Math.min(input.length, Math.floor((i + 1) * ratio));
+      let sum = 0; let n = 0;
+      for (let j = start; j < end; j++) { sum += input[j]; n++; }
+      out[i] = n > 0 ? sum / n : 0;
     }
-    return "";
+    return out;
+  };
+
+  // Encode 16-bit mono PCM as a complete WAV file.
+  const encodeWav = (samples: Float32Array, sampleRate: number): Blob => {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    const writeStr = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    writeStr(0, "RIFF");
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeStr(8, "WAVE");
+    writeStr(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);          // PCM
+    view.setUint16(22, 1, true);          // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);          // block align
+    view.setUint16(34, 16, true);         // bits per sample
+    writeStr(36, "data");
+    view.setUint32(40, samples.length * 2, true);
+    let off = 44;
+    for (let i = 0; i < samples.length; i++, off += 2) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return new Blob([buffer], { type: "audio/wav" });
   };
 
   const uploadSegmentStreaming = async (blob: Blob) => {
-    const type = blob.type || "audio/webm";
-    const ext = type.includes("mp4") ? "mp4" : type.includes("mpeg") ? "mp3" : "webm";
     const fd = new FormData();
-    fd.append("file", blob, `recording.${ext}`);
+    fd.append("file", blob, "recording.wav");
     fd.append("stream", "true");
     setTranscribing(true);
     try {
@@ -797,7 +833,6 @@ function SingleChat({
           }
         }
       }
-      // If no deltas arrived but a final text was returned, apply it once.
       if (!appended && doneText) appendDelta(doneText);
       requestAnimationFrame(() => textareaRef.current?.focus());
     } catch (err) {
@@ -807,68 +842,78 @@ function SingleChat({
     }
   };
 
-  const startSegment = () => {
-    const stream = audioStreamRef.current;
-    if (!stream || !recordingRef.current) return;
-    const mime = pickMime();
-    const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-    const chunks: Blob[] = [];
-    rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-    rec.onstop = () => {
-      const type = rec.mimeType || mime || "audio/webm";
-      const blob = new Blob(chunks, { type });
-      if (blob.size >= 1024) {
-        void uploadSegmentStreaming(blob).then(() => {
-          if (liveModeRef.current && pendingSubmitRef.current) {
-            pendingSubmitRef.current = false;
-            submitRef.current?.();
-          }
-        });
+  const flushSegment = (submitAfter: boolean) => {
+    const chunks = pcmChunksRef.current;
+    pcmChunksRef.current = [];
+    if (chunks.length === 0) return;
+    const total = chunks.reduce((n, c) => n + c.length, 0);
+    const merged = new Float32Array(total);
+    let off = 0;
+    for (const c of chunks) { merged.set(c, off); off += c.length; }
+    // Quick energy check — skip near-silent segments so we don't upload empty audio.
+    let sum = 0;
+    for (let i = 0; i < merged.length; i++) sum += merged[i] * merged[i];
+    const rms = Math.sqrt(sum / Math.max(1, merged.length));
+    if (rms < 0.005) return;
+    const down = downsample(merged, pcmSampleRateRef.current, TARGET_SR);
+    const wav = encodeWav(down, TARGET_SR);
+    if (wav.size < 2048) return;
+    void uploadSegmentStreaming(wav).then(() => {
+      if (submitAfter && liveModeRef.current) {
+        submitRef.current?.();
       }
-      if (recordingRef.current) startSegment();
-      else stopMicStream();
-    };
-    mediaRecorderRef.current = rec;
-    rec.start();
-    if (segmentTimerRef.current) clearTimeout(segmentTimerRef.current);
-    segmentTimerRef.current = setTimeout(() => {
-      if (rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
-    }, SEGMENT_MS);
+    });
   };
 
-  const startVAD = (stream: MediaStream) => {
+  const startCapture = (stream: MediaStream) => {
     try {
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AC();
       audioCtxRef.current = ctx;
+      pcmSampleRateRef.current = ctx.sampleRate;
       const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 1024;
-      src.connect(analyser);
-      analyserRef.current = analyser;
-      const data = new Uint8Array(analyser.fftSize);
-      let lastVoiceTs = Date.now();
-      let hadVoice = false;
-      const tick = () => {
-        if (!analyserRef.current) return;
-        analyser.getByteTimeDomainData(data);
-        let sum = 0;
-        for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
-        const rms = Math.sqrt(sum / data.length);
+      sourceNodeRef.current = src;
+      const bufferSize = 4096;
+      const processor = ctx.createScriptProcessor(bufferSize, 1, 1);
+      processorRef.current = processor;
+      vadStateRef.current = { lastVoice: Date.now(), hadVoice: false };
+      processor.onaudioprocess = (e) => {
+        if (!recordingRef.current) return;
+        const input = e.inputBuffer.getChannelData(0);
+        // Copy — the underlying buffer is reused.
+        pcmChunksRef.current.push(new Float32Array(input));
+        // Compute RMS for VAD.
+        let s = 0;
+        for (let i = 0; i < input.length; i++) s += input[i] * input[i];
+        const rms = Math.sqrt(s / input.length);
         const now = Date.now();
-        if (rms > 0.035) { lastVoiceTs = now; hadVoice = true; }
-        if (liveModeRef.current && hadVoice && now - lastVoiceTs > SILENCE_MS) {
-          hadVoice = false;
-          // Flush current segment early and mark it for auto-submit
-          pendingSubmitRef.current = true;
-          const rec = mediaRecorderRef.current;
-          if (rec && rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
+        const st = vadStateRef.current;
+        if (rms > 0.02) { st.lastVoice = now; st.hadVoice = true; }
+        if (liveModeRef.current && st.hadVoice && now - st.lastVoice > SILENCE_MS) {
+          st.hadVoice = false;
+          st.lastVoice = now;
+          flushSegment(true);
         }
-        vadRafRef.current = requestAnimationFrame(tick);
       };
-      vadRafRef.current = requestAnimationFrame(tick);
-    } catch { /* VAD is best-effort */ }
+      src.connect(processor);
+      // Route to a muted gain so the processor actually runs without feedback.
+      const sink = ctx.createGain();
+      sink.gain.value = 0;
+      processor.connect(sink);
+      sink.connect(ctx.destination);
+      // Segment timer: in non-live mode, flush every SEGMENT_MS.
+      const tick = () => {
+        if (!recordingRef.current) return;
+        if (!liveModeRef.current) flushSegment(false);
+        segmentTimerRef.current = setTimeout(tick, SEGMENT_MS);
+      };
+      segmentTimerRef.current = setTimeout(tick, SEGMENT_MS);
+    } catch (err) {
+      setMicErr(err instanceof Error ? err.message : String(err));
+    }
   };
+
+
 
   const startRecording = async (live: boolean) => {
     setMicErr(null);
@@ -899,8 +944,7 @@ function SingleChat({
       setRecording(true);
       setLiveMode(live);
       setMicNeedsNewTab(false);
-      if (live) startVAD(stream);
-      startSegment();
+      startCapture(stream);
     } catch (err) {
       stopMicStream();
       recordingRef.current = false;
@@ -936,11 +980,14 @@ function SingleChat({
 
   const stopRecording = () => {
     recordingRef.current = false;
+    const wasLive = liveModeRef.current;
     liveModeRef.current = false;
     setRecording(false);
     setLiveMode(false);
-    const rec = mediaRecorderRef.current;
-    if (rec && rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
+    // Flush anything captured so far (no auto-submit on manual stop).
+    flushSegment(false);
+    void wasLive;
+    stopMicStream();
   };
 
   const requestMicWithPrompt = async (live: boolean) => {
@@ -959,7 +1006,7 @@ function SingleChat({
 
   const toggleLive = () => {
     if (recording && liveMode) { stopRecording(); return; }
-    if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); if (audioStreamRef.current) startVAD(audioStreamRef.current); return; }
+    if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); return; }
     void requestMicWithPrompt(true);
   };
 
