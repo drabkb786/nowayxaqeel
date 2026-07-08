@@ -1346,36 +1346,52 @@ function SingleChat({
               <Paperclip className="w-5 h-5" />
               <input type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
             </label>
-            <button
-              type="button"
-              onClick={toggleRecording}
-              className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 ${
-                recording && !liveMode
-                  ? "bg-red-500/20 text-red-400 animate-pulse"
-                  : transcribing
-                  ? "text-mint animate-pulse"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/60"
-              }`}
-              title={recording && !liveMode ? "Stop recording" : transcribing ? "Transcribing…" : micErr ?? "Voice input (live text)"}
-              aria-label="Voice input"
-              aria-pressed={recording && !liveMode}
-            >
-              <Mic className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={toggleLive}
-              className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 text-[11px] font-semibold tracking-wide ${
-                liveMode
-                  ? "bg-mint/20 text-mint animate-pulse ring-1 ring-mint/40"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/60"
-              }`}
-              title={liveMode ? "Stop Live Q&A" : "Live Q&A — bolo, jawab khud aa jaye ga"}
-              aria-label="Live Q&A"
-              aria-pressed={liveMode}
-            >
-              LIVE
-            </button>
+            {(() => {
+              const listening = recording && !liveMode;
+              const processing = !recording && (transcribing || (busy && !liveMode));
+              const stateClass = listening
+                ? "bg-red-500/25 text-red-400 ring-2 ring-red-500/40 shadow-[0_0_0_6px_rgba(239,68,68,0.12)] animate-pulse"
+                : processing
+                ? "bg-mint/15 text-mint ring-1 ring-mint/40 animate-pulse"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60";
+              const label = listening ? "Listening — click to stop" : processing ? "Processing…" : (micErr ?? "Voice input (live text)");
+              return (
+                <button
+                  type="button"
+                  onClick={toggleRecording}
+                  className={`relative flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 ${stateClass}`}
+                  title={label}
+                  aria-label="Voice input"
+                  aria-pressed={listening}
+                >
+                  <Mic className="w-5 h-5" />
+                  {listening && <span className="absolute inset-0 rounded-full ring-2 ring-red-500/60 animate-ping" aria-hidden />}
+                </button>
+              );
+            })()}
+            {(() => {
+              const liveListening = recording && liveMode;
+              const liveSpeaking = liveMode && (busy || transcribing);
+              const stateClass = liveListening
+                ? "bg-mint/25 text-mint ring-2 ring-mint/50 shadow-[0_0_0_6px_rgba(34,211,153,0.12)] animate-pulse"
+                : liveSpeaking
+                ? "bg-mint/15 text-mint ring-1 ring-mint/40 animate-pulse"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60";
+              const label = liveListening ? "Live — bol rahe hain, sun raha hoon" : liveSpeaking ? "Live — jawab de raha hoon (click to interrupt)" : "Live Q&A — bolo, jawab khud aa jayega";
+              return (
+                <button
+                  type="button"
+                  onClick={toggleLive}
+                  className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 text-[11px] font-semibold tracking-wide ${stateClass}`}
+                  title={label}
+                  aria-label="Live Q&A"
+                  aria-pressed={liveMode}
+                >
+                  LIVE
+                </button>
+              );
+            })()}
+
 
             <div className="flex flex-1 min-w-0 items-end gap-0">
               <textarea
