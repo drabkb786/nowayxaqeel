@@ -490,7 +490,7 @@ function drawKeyTakeaways(ctx: Ctx, kb: Extract<Block, { type: "keytakeaways" }>
   ctx.page.drawText("KEY TAKEAWAYS", { x: MARGIN + padX, y: ty - 10, size: 9.5, font: ctx.fonts.bold, color: ctx.pal.primary });
   ty -= 20;
   for (const w of wrapped) {
-    ctx.page.drawText("●", { x: MARGIN + padX, y: ty - BODY_SIZE + 1, size: BODY_SIZE, font: ctx.fonts.bold, color: ctx.pal.primary });
+    ctx.page.drawText("\u2022", { x: MARGIN + padX, y: ty - BODY_SIZE + 1, size: BODY_SIZE, font: ctx.fonts.bold, color: ctx.pal.primary });
     for (let i = 0; i < w.length; i++) {
       ctx.page.drawText(w[i], { x: MARGIN + padX + 14, y: ty - BODY_SIZE, size: BODY_SIZE, font: ctx.fonts.regular, color: ctx.pal.ink });
       ty -= BODY_LEADING;
