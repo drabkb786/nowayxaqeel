@@ -665,22 +665,166 @@ function SingleChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Voice input (microphone → transcription)
+  // Voice input (microphone → streaming transcription + Live Q&A)
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [liveMode, setLiveMode] = useState(false);
   const [micErr, setMicErr] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const audioStreamRef = useRef<MediaStream | null>(null);
+  const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const vadRafRef = useRef<number | null>(null);
+  const recordingRef = useRef(false);
+  const liveModeRef = useRef(false);
+  const submitRef = useRef<(() => void) | null>(null);
+  const pendingSubmitRef = useRef(false);
+  const SEGMENT_MS = 4000;
+  const SILENCE_MS = 1500;
 
   const stopMicStream = () => {
     audioStreamRef.current?.getTracks().forEach((t) => t.stop());
     audioStreamRef.current = null;
+    if (vadRafRef.current !== null) { cancelAnimationFrame(vadRafRef.current); vadRafRef.current = null; }
+    if (audioCtxRef.current) { try { void audioCtxRef.current.close(); } catch { /* ignore */ } audioCtxRef.current = null; }
+    analyserRef.current = null;
+    if (segmentTimerRef.current) { clearTimeout(segmentTimerRef.current); segmentTimerRef.current = null; }
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
   };
 
-  const startRecording = async () => {
+  const pickMime = () => {
+    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
+    for (const c of candidates) {
+      if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c)) return c;
+    }
+    return "";
+  };
+
+  const uploadSegmentStreaming = async (blob: Blob) => {
+    const type = blob.type || "audio/webm";
+    const ext = type.includes("mp4") ? "mp4" : type.includes("mpeg") ? "mp3" : "webm";
+    const fd = new FormData();
+    fd.append("file", blob, `recording.${ext}`);
+    fd.append("stream", "true");
+    setTranscribing(true);
+    try {
+      const res = await fetch("/api/transcribe", { method: "POST", body: fd });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || `Transcription failed (${res.status})`);
+      }
+      if (!res.body) return;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let appended = "";
+      let doneText = "";
+      const appendDelta = (delta: string) => {
+        appended += delta;
+        setInput((prev) => {
+          const sep = prev && !prev.endsWith(" ") && !delta.startsWith(" ") ? " " : "";
+          return prev + sep + delta;
+        });
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buffer.indexOf("\n\n")) !== -1) {
+          const evt = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          for (const line of evt.split("\n")) {
+            const l = line.trim();
+            if (!l.startsWith("data:")) continue;
+            const payload = l.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            try {
+              const j = JSON.parse(payload) as { type?: string; delta?: string; text?: string };
+              if (j.type === "transcript.text.delta" && j.delta) appendDelta(j.delta);
+              else if (j.type === "transcript.text.done" && typeof j.text === "string") doneText = j.text;
+            } catch { /* ignore */ }
+          }
+        }
+      }
+      // If no deltas arrived but a final text was returned, apply it once.
+      if (!appended && doneText) appendDelta(doneText);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    } catch (err) {
+      setMicErr(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const startSegment = () => {
+    const stream = audioStreamRef.current;
+    if (!stream || !recordingRef.current) return;
+    const mime = pickMime();
+    const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    rec.onstop = () => {
+      const type = rec.mimeType || mime || "audio/webm";
+      const blob = new Blob(chunks, { type });
+      if (blob.size >= 1024) {
+        void uploadSegmentStreaming(blob).then(() => {
+          if (liveModeRef.current && pendingSubmitRef.current) {
+            pendingSubmitRef.current = false;
+            submitRef.current?.();
+          }
+        });
+      }
+      if (recordingRef.current) startSegment();
+      else stopMicStream();
+    };
+    mediaRecorderRef.current = rec;
+    rec.start();
+    if (segmentTimerRef.current) clearTimeout(segmentTimerRef.current);
+    segmentTimerRef.current = setTimeout(() => {
+      if (rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
+    }, SEGMENT_MS);
+  };
+
+  const startVAD = (stream: MediaStream) => {
+    try {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AC();
+      audioCtxRef.current = ctx;
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      src.connect(analyser);
+      analyserRef.current = analyser;
+      const data = new Uint8Array(analyser.fftSize);
+      let lastVoiceTs = Date.now();
+      let hadVoice = false;
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+        const rms = Math.sqrt(sum / data.length);
+        const now = Date.now();
+        if (rms > 0.035) { lastVoiceTs = now; hadVoice = true; }
+        if (liveModeRef.current && hadVoice && now - lastVoiceTs > SILENCE_MS) {
+          hadVoice = false;
+          // Flush current segment early and mark it for auto-submit
+          pendingSubmitRef.current = true;
+          const rec = mediaRecorderRef.current;
+          if (rec && rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
+        }
+        vadRafRef.current = requestAnimationFrame(tick);
+      };
+      vadRafRef.current = requestAnimationFrame(tick);
+    } catch { /* VAD is best-effort */ }
+  };
+
+  const startRecording = async (live: boolean) => {
     setMicErr(null);
-    if (recording || transcribing) return;
+    if (recordingRef.current) return;
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setMicErr("Microphone not supported in this browser.");
       return;
@@ -688,72 +832,44 @@ function SingleChat({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
-      // Pick a mime the browser supports (Safari → mp4, others → webm)
-      const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
-      let mime = "";
-      for (const c of candidates) {
-        if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c)) { mime = c; break; }
-      }
-      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      audioChunksRef.current = [];
-      rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data); };
-      rec.onstop = async () => {
-        stopMicStream();
-        const type = rec.mimeType || mime || "audio/webm";
-        const blob = new Blob(audioChunksRef.current, { type });
-        audioChunksRef.current = [];
-        if (blob.size < 1024) {
-          setMicErr("Recording too short — please try again.");
-          setTranscribing(false);
-          return;
-        }
-        setTranscribing(true);
-        try {
-          const fd = new FormData();
-          const ext = type.includes("mp4") ? "mp4" : type.includes("mpeg") ? "mp3" : "webm";
-          fd.append("file", blob, `recording.${ext}`);
-          const res = await fetch("/api/transcribe", { method: "POST", body: fd });
-          if (!res.ok) {
-            const errText = await res.text().catch(() => "");
-            throw new Error(errText || `Transcription failed (${res.status})`);
-          }
-          const data = (await res.json()) as { text?: string };
-          const text = (data.text ?? "").trim();
-          if (text) {
-            setInput((prev) => (prev ? prev.replace(/\s+$/, "") + " " + text : text));
-            requestAnimationFrame(() => textareaRef.current?.focus());
-          } else {
-            setMicErr("No speech detected. Please try again.");
-          }
-        } catch (err) {
-          setMicErr(err instanceof Error ? err.message : String(err));
-        } finally {
-          setTranscribing(false);
-        }
-      };
-      mediaRecorderRef.current = rec;
-      rec.start();
+      recordingRef.current = true;
+      liveModeRef.current = live;
       setRecording(true);
+      setLiveMode(live);
+      if (live) startVAD(stream);
+      startSegment();
     } catch (err) {
       stopMicStream();
+      recordingRef.current = false;
+      liveModeRef.current = false;
+      setRecording(false);
+      setLiveMode(false);
       setMicErr(err instanceof Error ? err.message : "Microphone permission denied.");
     }
   };
 
   const stopRecording = () => {
-    const rec = mediaRecorderRef.current;
-    if (rec && rec.state !== "inactive") {
-      try { rec.stop(); } catch { /* ignore */ }
-    }
+    recordingRef.current = false;
+    liveModeRef.current = false;
     setRecording(false);
+    setLiveMode(false);
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
   };
 
   const toggleRecording = () => {
     if (recording) stopRecording();
-    else void startRecording();
+    else void startRecording(false);
   };
 
-  useEffect(() => () => { stopMicStream(); }, []);
+  const toggleLive = () => {
+    if (recording && liveMode) stopRecording();
+    else if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); if (audioStreamRef.current) startVAD(audioStreamRef.current); }
+    else void startRecording(true);
+  };
+
+  useEffect(() => () => { recordingRef.current = false; stopMicStream(); }, []);
+
 
 
   const onMsgRef = useRef(onMessagesChange);
