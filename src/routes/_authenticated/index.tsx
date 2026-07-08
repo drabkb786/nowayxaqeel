@@ -24,7 +24,7 @@ import {
   Code2,
   ImageIcon,
   X,
-  Globe,
+  
   
   Bell,
   Edit3,
@@ -601,8 +601,8 @@ function SingleChat({
   onSuggestion: (prompt: string) => void;
   onMessagesChange: (m: UIMessage[]) => void;
 }) {
-  const [depth, setDepth] = useState<"standard" | "extended">("standard");
-  const [research, setResearch] = useState(false);
+  const [depth] = useState<"standard" | "extended">("extended");
+  const [research] = useState(true);
   const transport = useMemo(
     () => new DefaultChatTransport({
       api: research ? "/api/research" : "/api/chat",
@@ -1138,33 +1138,6 @@ function SingleChat({
                 rows={1}
                 className="flex-1 min-w-0 w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground max-h-48 py-2.5 px-2 leading-relaxed"
               />
-              {!busy && (
-                <div className="flex items-center gap-1.5 self-center shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setResearch((v) => !v)}
-                    title={research ? "Deep Research: ON (25+ web sources)" : "Deep Research: OFF"}
-                    aria-pressed={research}
-                    className={`hidden sm:flex items-center gap-1 text-xs rounded-full px-3 py-1.5 border transition ${
-                      research
-                        ? "bg-mint text-black border-mint shadow-sm"
-                        : "bg-background/60 hover:bg-background border-border text-foreground"
-                    }`}
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    Research
-                  </button>
-                  <select
-                    value={depth}
-                    onChange={(e) => setDepth(e.target.value as "standard" | "extended")}
-                    title="Response depth"
-                    className="hidden md:block text-xs bg-background/60 hover:bg-background border border-border rounded-full px-3 py-1.5 outline-none cursor-pointer text-foreground shrink-0"
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="extended">Extended</option>
-                  </select>
-                </div>
-              )}
             </div>
             {busy ? (
               <button
