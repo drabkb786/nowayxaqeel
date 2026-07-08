@@ -826,9 +826,33 @@ function SingleChat({
     setMicErr(null);
     if (recordingRef.current) return;
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      setMicErr("Microphone not supported in this browser.");
+      setMicErr("Mic browser me support nahi kar raha.");
       return;
     }
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      setMicErr("Mic sirf HTTPS pe kaam karta hai.");
+      return;
+    }
+    // Detect iframe without microphone permission-policy (common in embedded previews)
+    const inIframe = typeof window !== "undefined" && window.top !== window.self;
+    try {
+      const fp = (document as unknown as { featurePolicy?: { allowsFeature: (name: string) => boolean } }).featurePolicy;
+      if (inIframe && fp && typeof fp.allowsFeature === "function" && !fp.allowsFeature("microphone")) {
+        setMicErr("Preview iframe me mic block hai — upar right corner me 'Open in new tab' pe click kar ke wahan try karo.");
+        return;
+      }
+    } catch { /* ignore */ }
+    // If Permissions API says explicitly denied, tell the user how to fix it
+    try {
+      const perms = (navigator as unknown as { permissions?: { query: (d: { name: string }) => Promise<{ state: string }> } }).permissions;
+      if (perms?.query) {
+        const status = await perms.query({ name: "microphone" }).catch(() => null);
+        if (status?.state === "denied") {
+          setMicErr("Browser ne mic block kiya hua hai — URL bar ke lock icon pe click kar ke Microphone → Allow karo, phir page reload karo.");
+          return;
+        }
+      }
+    } catch { /* ignore */ }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
@@ -844,9 +868,24 @@ function SingleChat({
       liveModeRef.current = false;
       setRecording(false);
       setLiveMode(false);
-      setMicErr(err instanceof Error ? err.message : "Microphone permission denied.");
+      const name = (err as { name?: string })?.name ?? "";
+      const msg = err instanceof Error ? err.message : String(err);
+      if (name === "NotAllowedError" || name === "SecurityError" || /permission/i.test(msg)) {
+        if (inIframe) {
+          setMicErr("Preview iframe mic block kar raha hai — 'Open in new tab' pe click kar ke wahan use karo.");
+        } else {
+          setMicErr("Mic permission denied — URL bar ke lock icon → Site settings → Microphone: Allow, phir reload.");
+        }
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        setMicErr("Koi mic detect nahi hua — mic connect karo aur try karo.");
+      } else if (name === "NotReadableError") {
+        setMicErr("Mic kisi doosri app me use ho raha hai — us app ko band kar ke try karo.");
+      } else {
+        setMicErr(msg || "Mic start nahi ho saka.");
+      }
     }
   };
+
 
   const stopRecording = () => {
     recordingRef.current = false;
