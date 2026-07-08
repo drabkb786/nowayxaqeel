@@ -670,6 +670,7 @@ function SingleChat({
   const [transcribing, setTranscribing] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
   const [micErr, setMicErr] = useState<string | null>(null);
+  const [micNeedsNewTab, setMicNeedsNewTab] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -683,6 +684,52 @@ function SingleChat({
   const pendingSubmitRef = useRef(false);
   const SEGMENT_MS = 4000;
   const SILENCE_MS = 1500;
+
+  const isInsideFrame = () => {
+    try {
+      return typeof window !== "undefined" && window.self !== window.top;
+    } catch {
+      return true;
+    }
+  };
+
+  const isMicBlockedByEmbed = () => {
+    if (!isInsideFrame() || typeof document === "undefined") return false;
+    try {
+      const doc = document as unknown as {
+        featurePolicy?: { allowsFeature: (name: string) => boolean };
+        permissionsPolicy?: { allowsFeature: (name: string) => boolean };
+      };
+      const policy = doc.permissionsPolicy ?? doc.featurePolicy;
+      return !!policy?.allowsFeature && !policy.allowsFeature("microphone");
+    } catch {
+      return false;
+    }
+  };
+
+  const getMicPermissionState = async () => {
+    try {
+      const perms = (navigator as unknown as { permissions?: { query: (d: { name: string }) => Promise<{ state: string }> } }).permissions;
+      const status = await perms?.query?.({ name: "microphone" }).catch(() => null);
+      return status?.state ?? "unknown";
+    } catch {
+      return "unknown";
+    }
+  };
+
+  const openMicInNewTab = (live: boolean) => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("startMic", live ? "live" : "voice");
+      const opened = window.open(url.toString(), "_blank");
+      if (opened) {
+        try { opened.opener = null; } catch { /* ignore */ }
+      }
+      return !!opened;
+    } catch {
+      return false;
+    }
+  };
 
   const stopMicStream = () => {
     audioStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -824,6 +871,7 @@ function SingleChat({
 
   const startRecording = async (live: boolean) => {
     setMicErr(null);
+    setMicNeedsNewTab(false);
     if (recordingRef.current) return;
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setMicErr("Mic browser me support nahi kar raha.");
@@ -833,26 +881,15 @@ function SingleChat({
       setMicErr("Mic sirf HTTPS pe kaam karta hai.");
       return;
     }
-    // Detect iframe without microphone permission-policy (common in embedded previews)
-    const inIframe = typeof window !== "undefined" && window.top !== window.self;
-    try {
-      const fp = (document as unknown as { featurePolicy?: { allowsFeature: (name: string) => boolean } }).featurePolicy;
-      if (inIframe && fp && typeof fp.allowsFeature === "function" && !fp.allowsFeature("microphone")) {
-        setMicErr("Preview iframe me mic block hai — upar right corner me 'Open in new tab' pe click kar ke wahan try karo.");
-        return;
+    if (isMicBlockedByEmbed()) {
+      setMicNeedsNewTab(true);
+      if (openMicInNewTab(live)) {
+        setMicErr("Preview frame mic ko block kar raha hai — mic new tab me khul raha hai.");
+      } else {
+        setMicErr("Preview frame mic ko block kar raha hai — Open in new tab par click kar ke mic use karein.");
       }
-    } catch { /* ignore */ }
-    // If Permissions API says explicitly denied, tell the user how to fix it
-    try {
-      const perms = (navigator as unknown as { permissions?: { query: (d: { name: string }) => Promise<{ state: string }> } }).permissions;
-      if (perms?.query) {
-        const status = await perms.query({ name: "microphone" }).catch(() => null);
-        if (status?.state === "denied") {
-          setMicErr("Browser ne mic block kiya hua hai — URL bar ke lock icon pe click kar ke Microphone → Allow karo, phir page reload karo.");
-          return;
-        }
-      }
-    } catch { /* ignore */ }
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
@@ -860,6 +897,7 @@ function SingleChat({
       liveModeRef.current = live;
       setRecording(true);
       setLiveMode(live);
+      setMicNeedsNewTab(false);
       if (live) startVAD(stream);
       startSegment();
     } catch (err) {
@@ -871,10 +909,18 @@ function SingleChat({
       const name = (err as { name?: string })?.name ?? "";
       const msg = err instanceof Error ? err.message : String(err);
       if (name === "NotAllowedError" || name === "SecurityError" || /permission/i.test(msg)) {
-        if (inIframe) {
-          setMicErr("Preview iframe mic block kar raha hai — 'Open in new tab' pe click kar ke wahan use karo.");
+        const state = await getMicPermissionState();
+        if (isMicBlockedByEmbed() || isInsideFrame()) {
+          setMicNeedsNewTab(true);
+          if (openMicInNewTab(live)) {
+            setMicErr("Preview frame mic ko block kar raha hai — mic new tab me khul raha hai.");
+          } else {
+            setMicErr("Preview frame mic ko block kar raha hai — Open in new tab par click kar ke mic use karein.");
+          }
+        } else if (state === "denied") {
+          setMicErr("Is domain par mic blocked hai — URL bar lock icon se Microphone Allow karke reload karein.");
         } else {
-          setMicErr("Mic permission denied — URL bar ke lock icon → Site settings → Microphone: Allow, phir reload.");
+          setMicErr("Browser ka mic popup Allow karein; agar popup nahi aaya to page reload kar ke dobara mic dabayein.");
         }
       } else if (name === "NotFoundError" || name === "OverconstrainedError") {
         setMicErr("Koi mic detect nahi hua — mic connect karo aur try karo.");
@@ -906,6 +952,17 @@ function SingleChat({
     else if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); if (audioStreamRef.current) startVAD(audioStreamRef.current); }
     else void startRecording(true);
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const startMic = url.searchParams.get("startMic");
+    if ((startMic !== "voice" && startMic !== "live") || isInsideFrame()) return;
+    url.searchParams.delete("startMic");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    const timer = window.setTimeout(() => { void startRecording(startMic === "live"); }, 250);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => () => { recordingRef.current = false; stopMicStream(); }, []);
 
@@ -1346,7 +1403,22 @@ function SingleChat({
             )}
           </div>
           <div className="mt-2 text-center text-[10px] text-muted-foreground">
-            NOWAYxAQEEL GPT can make mistakes. Verify important info.
+            {micErr ? (
+              <span className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-destructive/20 bg-destructive/10 px-3 py-1 text-destructive">
+                {micErr}
+                {micNeedsNewTab && (
+                  <button
+                    type="button"
+                    onClick={() => openMicInNewTab(liveModeRef.current)}
+                    className="rounded-full bg-mint px-2 py-0.5 text-background hover:opacity-90 transition"
+                  >
+                    Open
+                  </button>
+                )}
+              </span>
+            ) : (
+              "NOWAYxAQEEL GPT can make mistakes. Verify important info."
+            )}
           </div>
         </div>
       </form>
