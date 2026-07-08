@@ -421,16 +421,28 @@ function ChatPage() {
              onMessagesChange={handleActiveMessagesChange}
           />
         ) : (
-          <SingleChat
-            key={active.id}
-            threadId={active.id}
-            initialMessages={active.messages}
-            model={modelA}
-            system={system}
-            username={username}
-            onSuggestion={sendSuggestion}
-             onMessagesChange={handleActiveMessagesChange}
-          />
+          // Keep every thread mounted so an in-flight stream keeps running
+          // (and its reply is saved) even if the user switches threads.
+          <div className="flex-1 flex flex-col min-h-0 relative">
+            {threads.map((t) => (
+              <div
+                key={t.id}
+                className={`absolute inset-0 flex flex-col min-h-0 ${t.id === active.id ? "" : "hidden"}`}
+                aria-hidden={t.id !== active.id}
+              >
+                <SingleChat
+                  threadId={t.id}
+                  initialMessages={t.messages}
+                  model={modelA}
+                  system={system}
+                  username={username}
+                  onSuggestion={sendSuggestion}
+                  onMessagesChange={(m) => persistMessages(t.id, m)}
+                  isActive={t.id === active.id}
+                />
+              </div>
+            ))}
+          </div>
         )}
       </main>
 
