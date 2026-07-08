@@ -1115,7 +1115,7 @@ function SingleChat({
               type="button"
               onClick={toggleRecording}
               disabled={transcribing}
-              className={`hidden sm:flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 ${
+              className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 ${
                 recording
                   ? "bg-red-500/20 text-red-400 animate-pulse"
                   : transcribing
