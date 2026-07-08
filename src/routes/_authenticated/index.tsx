@@ -114,6 +114,14 @@ function textOf(m: UIMessage): string {
   return (m.parts ?? []).map((p) => (p.type === "text" ? p.text : "")).join("");
 }
 
+function normalizeForDuplicate(text: string): string {
+  return text
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06ff]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function messagesSignature(messages: UIMessage[]): string {
   return JSON.stringify(messages.map((m) => ({ id: m.id, role: m.role, parts: m.parts })));
 }
@@ -691,6 +699,7 @@ function SingleChat({
   const recognitionRef = useRef<{ start: () => void; stop: () => void; abort: () => void; onresult: ((e: unknown) => void) | null; onerror: ((e: unknown) => void) | null; onend: (() => void) | null; onstart: (() => void) | null; continuous: boolean; interimResults: boolean; lang: string; } | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalTextRef = useRef<string>("");
+  const finalSegmentsRef = useRef<string[]>([]);
   const baseInputRef = useRef<string>("");
   const shouldRestartRef = useRef(false);
   const recordingRef = useRef(false);
@@ -699,7 +708,11 @@ function SingleChat({
   const spokenAssistantIdsRef = useRef<Set<string>>(new Set());
   const ttsAbortRef = useRef<AbortController | null>(null);
   const ttsAudioCtxRef = useRef<AudioContext | null>(null);
+  const ttsSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const ttsSessionRef = useRef(0);
   const lastSubmitRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
+  const lastSentMessageRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
+  const autoSubmittingRef = useRef(false);
   const SILENCE_MS = 1800;
 
 
@@ -763,12 +776,20 @@ function SingleChat({
     return (ctor ?? null) as unknown as ReturnType<typeof getSpeechRecognitionCtor>;
   };
 
-  const cancelSpeaking = () => {
+  const cancelSpeaking = (closeAudioContext = false) => {
+    ttsSessionRef.current += 1;
     try { ttsAbortRef.current?.abort(); } catch { /* ignore */ }
     ttsAbortRef.current = null;
     try { if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); } catch { /* ignore */ }
-    try { void ttsAudioCtxRef.current?.close(); } catch { /* ignore */ }
-    ttsAudioCtxRef.current = null;
+    ttsSourcesRef.current.forEach((source) => {
+      try { source.stop(); } catch { /* ignore */ }
+      try { source.disconnect(); } catch { /* ignore */ }
+    });
+    ttsSourcesRef.current.clear();
+    if (closeAudioContext) {
+      try { void ttsAudioCtxRef.current?.close(); } catch { /* ignore */ }
+      ttsAudioCtxRef.current = null;
+    }
     setTranscribing(false);
   };
 
@@ -776,12 +797,15 @@ function SingleChat({
   // and play chunks progressively via Web Audio. Falls back to browser SpeechSynthesis on error.
   const speakText = async (text: string) => {
     if (typeof window === "undefined") return;
-    cancelSpeaking();
+    cancelSpeaking(false);
     const controller = new AbortController();
     ttsAbortRef.current = controller;
+    const session = ++ttsSessionRef.current;
     setTranscribing(true);
 
     const onDone = () => {
+      if (ttsSessionRef.current !== session) return;
+      ttsAbortRef.current = null;
       setTranscribing(false);
       if (liveModeRef.current && !recordingRef.current) {
         void startRecording(true);
@@ -807,12 +831,14 @@ function SingleChat({
         ttsAudioCtxRef.current = ctx;
       }
       if (ctx.state === "suspended") { try { await ctx.resume(); } catch { /* ignore */ } }
+      if (ctx.state === "suspended") throw new Error("Audio playback blocked");
 
 
       let playhead = 0;
       let pending = new Uint8Array(0);
       let scheduled = 0;
       let ended = false;
+      let gotAudio = false;
       const checkEnd = () => {
         if (ended && scheduled === 0) onDone();
       };
@@ -834,8 +860,15 @@ function SingleChat({
         src.connect(ctx.destination);
         if (playhead === 0) playhead = ctx.currentTime + 0.05;
         else playhead = Math.max(playhead, ctx.currentTime);
+        gotAudio = true;
         scheduled += 1;
-        src.onended = () => { scheduled = Math.max(0, scheduled - 1); checkEnd(); };
+        ttsSourcesRef.current.add(src);
+        src.onended = () => {
+          ttsSourcesRef.current.delete(src);
+          try { src.disconnect(); } catch { /* ignore */ }
+          scheduled = Math.max(0, scheduled - 1);
+          checkEnd();
+        };
         src.start(playhead);
         playhead += buffer.duration;
       };
@@ -847,6 +880,7 @@ function SingleChat({
         const { value, done } = await reader.read();
         if (done) break;
         sseBuf += decoder.decode(value, { stream: true });
+        sseBuf = sseBuf.replace(/\r\n/g, "\n");
         // Parse SSE events (data: ...\n\n)
         let idx: number;
         while ((idx = sseBuf.indexOf("\n\n")) !== -1) {
@@ -867,6 +901,7 @@ function SingleChat({
           } catch { /* ignore malformed */ }
         }
       }
+      if (!gotAudio) throw new Error("No audio returned");
       ended = true;
       checkEnd();
     } catch (err) {
@@ -896,13 +931,16 @@ function SingleChat({
     clearSilenceTimer();
     silenceTimerRef.current = setTimeout(() => {
       if (!recordingRef.current) return;
+      if (autoSubmittingRef.current) return;
+      autoSubmittingRef.current = true;
       // Commit whatever we have and submit.
       shouldRestartRef.current = false;
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
       // Give the recognizer a beat to flush final results, then submit.
       setTimeout(() => {
         submitRef.current?.();
-      }, 120);
+        window.setTimeout(() => { autoSubmittingRef.current = false; }, 600);
+      }, 180);
     }, SILENCE_MS);
   };
 
@@ -938,6 +976,9 @@ function SingleChat({
   const startRecording = async (live: boolean) => {
     setMicErr(null);
     setMicNeedsNewTab(false);
+    // If the assistant is speaking, interrupt it without destroying the
+    // already-unlocked AudioContext. Closing it here makes later TTS silent.
+    cancelSpeaking(false);
     unlockAudioContext();
     if (recordingRef.current) return;
 
@@ -958,9 +999,6 @@ function SingleChat({
       setMicErr("Yeh browser live speech-to-text support nahi karta — Chrome / Edge try karein.");
       return;
     }
-
-    // If the AI is speaking, interrupt it immediately.
-    cancelSpeaking();
 
     // Ensure mic permission is granted (SpeechRecognition itself will prompt otherwise).
     if (navigator.mediaDevices?.getUserMedia) {
@@ -999,6 +1037,8 @@ function SingleChat({
       // Seed with whatever is already in the box so we append rather than replace.
       baseInputRef.current = input;
       finalTextRef.current = "";
+      finalSegmentsRef.current = [];
+      autoSubmittingRef.current = false;
 
       rec.onstart = () => {
         recordingRef.current = true;
@@ -1011,19 +1051,18 @@ function SingleChat({
       rec.onresult = (evt: unknown) => {
         const e = evt as { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> };
         let interim = "";
-        let newFinal = "";
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const r = e.results[i];
           const txt = r[0]?.transcript ?? "";
-          if (r.isFinal) newFinal += txt;
+          if (r.isFinal) finalSegmentsRef.current[i] = txt;
           else interim += txt;
         }
-        if (newFinal) finalTextRef.current = (finalTextRef.current + " " + newFinal).replace(/\s+/g, " ").trim();
+        finalTextRef.current = finalSegmentsRef.current.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
         const base = baseInputRef.current;
         const composed = [base, finalTextRef.current, interim].filter((s) => s && s.trim().length > 0).join(" ").replace(/\s+/g, " ");
         setInput(composed);
         // Any speech resets the silence timer.
-        scheduleSilenceAutoSubmit();
+        if (!autoSubmittingRef.current) scheduleSilenceAutoSubmit();
       };
 
       rec.onerror = (evt: unknown) => {
@@ -1069,7 +1108,7 @@ function SingleChat({
     setRecording(false);
     setLiveMode(false);
     clearSilenceTimer();
-    cancelSpeaking();
+    cancelSpeaking(false);
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
   };
 
@@ -1105,7 +1144,7 @@ function SingleChat({
     return () => window.clearTimeout(timer);
   }, []);
 
-  useEffect(() => () => { recordingRef.current = false; stopMicStream(); }, []);
+  useEffect(() => () => { recordingRef.current = false; stopMicStream(); cancelSpeaking(true); }, []);
 
 
 
@@ -1327,6 +1366,24 @@ function SingleChat({
     e.preventDefault();
     if (busy || (!input.trim() && !attached)) return;
     const prompt = input.trim();
+    const normalizedPrompt = normalizeForDuplicate(prompt);
+    if (liveModeRef.current && normalizedPrompt) {
+      const now = Date.now();
+      if (lastSentMessageRef.current.text === normalizedPrompt && now - lastSentMessageRef.current.at < 8000) {
+        setInput("");
+        setAttached(null);
+        finalTextRef.current = "";
+        finalSegmentsRef.current = [];
+        baseInputRef.current = "";
+        return;
+      }
+      lastSentMessageRef.current = { text: normalizedPrompt, at: now };
+      clearSilenceTimer();
+      shouldRestartRef.current = false;
+      recordingRef.current = false;
+      setRecording(false);
+      try { recognitionRef.current?.abort(); } catch { /* ignore */ }
+    }
     if (looksLikePdfRequest(prompt)) {
       if (!prompt) return;
       setInput("");
@@ -1356,6 +1413,9 @@ function SingleChat({
     }
     setInput("");
     setAttached(null);
+    finalTextRef.current = "";
+    finalSegmentsRef.current = [];
+    baseInputRef.current = "";
   };
 
   const onFile = (f: File | null) => {
@@ -1378,8 +1438,15 @@ function SingleChat({
       // events can both call submitRef within a few hundred ms with the same
       // text. Block a repeat of the same text within 3 seconds.
       const now = Date.now();
-      if (lastSubmitRef.current.text === trimmed && now - lastSubmitRef.current.at < 3000) return;
-      lastSubmitRef.current = { text: trimmed, at: now };
+      const normalized = normalizeForDuplicate(trimmed);
+      if (lastSubmitRef.current.text === normalized && now - lastSubmitRef.current.at < 3000) {
+        setInput("");
+        finalTextRef.current = "";
+        finalSegmentsRef.current = [];
+        baseInputRef.current = "";
+        return;
+      }
+      lastSubmitRef.current = { text: normalized, at: now };
       const fakeEvt = { preventDefault: () => {} } as React.FormEvent;
       submit(fakeEvt);
     };
