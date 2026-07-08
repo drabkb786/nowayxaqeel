@@ -610,7 +610,12 @@ function SingleChat({
         const live = liveModeRef.current;
         const useResearch = research && !live;
         const depthDirective = live
-          ? "\n\nRESPONSE MODE: VOICE. Reply in 1-3 short spoken sentences, plain conversational text (no markdown, no lists, no code). If the user spoke Urdu or Roman Urdu, reply in the same script and register they used."
+          ? "\n\nRESPONSE MODE: VOICE ASSISTANT (like a friend on a phone call).\n" +
+            "- Talk casually and naturally, 1-2 short spoken sentences. Plain text only — NO markdown, NO lists, NO code, NO headings, NO links.\n" +
+            "- Match the user's language and script exactly. If they speak Urdu script, reply in Urdu script. If they speak Roman Urdu (e.g. 'kya haal hai', 'tum kaise ho', 'sunao'), reply in the SAME Roman Urdu style.\n" +
+            "- For small talk / greetings / chit-chat ('kya haal hai', 'kaise ho', 'assalam o alaikum', 'hello', 'kya kar rahe ho', 'sunao'), reply like a human friend would — e.g. 'Bilkul theek, tum sunao!' — do NOT explain the phrase, do NOT give definitions, do NOT lecture.\n" +
+            "- Only give a detailed/long/structured answer, do a web search, generate a PDF, generate an image, or do any 'task' when the user EXPLICITLY orders it with words like 'search karo', 'batao details', 'explain karo', 'pdf banao', 'image banao', 'likh ke do', 'research karo'. Otherwise keep it a short conversational reply.\n" +
+            "- Never read out symbols, asterisks, or formatting. Never say 'as an AI'. Never dump encyclopedic info unasked."
           : depth === "extended"
             ? "\n\nRESPONSE DEPTH: EXTENDED. Give an exhaustively detailed, deeply thorough response. Cover background, nuances, edge cases, examples, step-by-step reasoning, comparisons, pros/cons, and practical tips. Prefer long-form structured sections."
             : "\n\nRESPONSE DEPTH: STANDARD. Give a clear, detailed but focused answer — well structured, not overly long.";
