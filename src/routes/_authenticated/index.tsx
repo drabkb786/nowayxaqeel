@@ -749,22 +749,53 @@ function SingleChat({
     setTranscribing(false);
   };
 
+  const pickVoiceForText = (text: string): SpeechSynthesisVoice | null => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+    const hasUrduScript = /[\u0600-\u06FF]/.test(text);
+    if (hasUrduScript) {
+      return (
+        voices.find((v) => /^ur(-|_)/i.test(v.lang)) ??
+        voices.find((v) => /^hi(-|_)/i.test(v.lang)) ??
+        voices.find((v) => /^ar(-|_)/i.test(v.lang)) ??
+        null
+      );
+    }
+    return voices.find((v) => /^en(-|_)/i.test(v.lang)) ?? null;
+  };
+
   const speakText = (text: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     try {
       window.speechSynthesis.cancel();
+      const hasUrduScript = /[\u0600-\u06FF]/.test(text);
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.02; u.pitch = 1; u.volume = 1;
+      u.rate = hasUrduScript ? 0.95 : 1.02;
+      u.pitch = 1;
+      u.volume = 1;
+      u.lang = hasUrduScript ? "ur-PK" : "en-US";
+      const voice = pickVoiceForText(text);
+      if (voice) u.voice = voice;
       u.onstart = () => setTranscribing(true);
       u.onend = () => {
         setTranscribing(false);
-        // In live mode, resume listening after the AI finishes speaking.
         if (liveModeRef.current && !recordingRef.current) {
           void startRecording(true);
         }
       };
       u.onerror = () => setTranscribing(false);
-      window.speechSynthesis.speak(u);
+      if (window.speechSynthesis.getVoices().length === 0) {
+        const once = () => {
+          window.speechSynthesis.removeEventListener("voiceschanged", once);
+          const v = pickVoiceForText(text);
+          if (v) u.voice = v;
+          window.speechSynthesis.speak(u);
+        };
+        window.speechSynthesis.addEventListener("voiceschanged", once);
+      } else {
+        window.speechSynthesis.speak(u);
+      }
     } catch { /* ignore */ }
   };
 
@@ -850,7 +881,7 @@ function SingleChat({
       const rec = new Ctor();
       rec.continuous = true;
       rec.interimResults = true;
-      rec.lang = (typeof navigator !== "undefined" && navigator.language) ? navigator.language : "en-US";
+      rec.lang = "ur-PK";
 
       // Seed with whatever is already in the box so we append rather than replace.
       baseInputRef.current = input;
@@ -1032,10 +1063,18 @@ function SingleChat({
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant") return;
     if (spokenAssistantIdsRef.current.has(last.id)) return;
-    const text = textOf(last).trim();
-    if (!text) return;
+    const raw = textOf(last).trim();
+    if (!raw) return;
     spokenAssistantIdsRef.current.add(last.id);
-    speakText(text);
+    const clean = raw
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`[^`]*`/g, " ")
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/[*_#>~]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    speakText(clean);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, status, liveMode]);
 
