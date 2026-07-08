@@ -699,7 +699,9 @@ function SingleChat({
   const spokenAssistantIdsRef = useRef<Set<string>>(new Set());
   const ttsAbortRef = useRef<AbortController | null>(null);
   const ttsAudioCtxRef = useRef<AudioContext | null>(null);
+  const lastSubmitRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
   const SILENCE_MS = 1800;
+
 
   const isInsideFrame = () => {
     try {
