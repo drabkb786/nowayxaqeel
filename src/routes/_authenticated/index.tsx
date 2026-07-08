@@ -930,73 +930,57 @@ function SingleChat({
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {messages.length === 0 && (
-            <div className="pt-10 sm:pt-16 pb-8 animate-in fade-in duration-700">
-              <div className="flex items-center gap-3">
-                <span className="h-px w-10 bg-gradient-to-r from-transparent via-mint to-transparent" />
-                <div className="inline-flex items-center gap-2 text-[10px] tracking-[0.3em] uppercase font-semibold text-mint/90">
-                  <span className="w-1.5 h-1.5 rounded-full bg-mint shadow-[0_0_10px_currentColor] animate-pulse" />
-                  System Online · Neural Core v5.5
-                </div>
+            <div className="pt-6 sm:pt-10 pb-4 animate-in fade-in duration-700">
+              <div className="text-[10px] sm:text-[11px] tracking-[0.3em] uppercase font-semibold text-muted-foreground">
+                Good evening, <span className="text-mint">@{username}</span>
               </div>
-              <h1 className="mt-6 font-serif text-6xl sm:text-7xl md:text-8xl font-normal tracking-tight leading-[0.9] text-foreground">
-                Good to see you,
-                <br />
-                <span className="italic aurora-text">@{username}</span>
+              <h1 className="mt-3 font-display text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-[1.05] text-foreground">
+                How can I help you today?
               </h1>
-              <p className="mt-5 text-lg sm:text-xl text-muted-foreground max-w-xl font-light leading-relaxed">
-                Your intelligent workspace is primed. Ask anything, generate images or PDFs, compare models, or dive into deep research.
+              <p className="mt-4 text-sm sm:text-base text-muted-foreground max-w-xl leading-relaxed">
+                Ask anything, get intelligent answers, create content, analyze data, generate images, and much more.
               </p>
-              <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
-                {SUGGESTIONS.map((s, i) => {
+
+              <div className="mt-8 flex flex-wrap gap-2">
+                {SUGGESTIONS.map((s) => {
                   const Icon = s.icon;
-                  const spans = [
-                    "col-span-2 lg:col-span-2 lg:row-span-2",
-                    "col-span-2 lg:col-span-2",
-                    "col-span-1 lg:col-span-1",
-                    "col-span-1 lg:col-span-1",
-                  ];
-                  const tints = [
-                    { glow: "bg-mint/20", ring: "hover:border-mint/40", icoBg: "bg-mint/15 border-mint/30", ico: "text-mint" },
-                    { glow: "bg-iris/20", ring: "hover:border-iris/40", icoBg: "bg-iris/15 border-iris/30", ico: "text-iris" },
-                    { glow: "bg-violet/20", ring: "hover:border-violet/40", icoBg: "bg-violet/15 border-violet/30", ico: "text-violet" },
-                    { glow: "bg-mint/20", ring: "hover:border-mint/40", icoBg: "bg-mint/15 border-mint/30", ico: "text-mint" },
-                  ];
-                  const t = tints[i] ?? tints[0];
-                  const isHero = i === 0;
                   return (
                     <button
                       key={s.title}
                       type="button"
                       onClick={() => onSuggestion(s.prompt)}
-                      className={`group relative overflow-hidden text-left bento-card p-6 transition-all duration-500 hover:-translate-y-1 ${t.ring} ${spans[i] ?? ""}`}
+                      className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-border/70 bg-card/40 hover:bg-mint/10 hover:border-mint/40 text-sm text-foreground transition"
                     >
-                      <div className={`absolute -top-12 -right-12 w-40 h-40 rounded-full ${t.glow} blur-[60px] opacity-40 group-hover:opacity-100 transition-opacity duration-700`} />
-                      <div className="relative flex flex-col h-full min-h-[7rem] justify-between gap-6">
-                        <div className="flex items-start justify-between">
-                          <div className={`w-11 h-11 rounded-2xl border ${t.icoBg} flex items-center justify-center ${t.ico} group-hover:scale-110 transition-transform duration-500`}>
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div className="w-7 h-7 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-300">
-                            <ArrowUp className="w-3.5 h-3.5 rotate-45" />
-                          </div>
-                        </div>
-                        <div>
-                          {isHero && (
-                            <div className="mb-2 text-[10px] tracking-[0.25em] uppercase font-semibold text-mint/80">Featured</div>
-                          )}
-                          <div className={`font-display font-medium text-foreground leading-snug ${isHero ? "text-xl sm:text-2xl" : "text-base"}`}>
-                            {s.title}
-                          </div>
-                          {isHero && (
-                            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                              Curated prompt — one click to start. Optimised for {s.title.toLowerCase()}.
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      <Icon className="w-3.5 h-3.5 text-mint" />
+                      {s.title}
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="mt-10 rounded-2xl border border-mint/20 bg-background/40 p-4">
+                <div className="text-[10px] tracking-[0.25em] uppercase text-muted-foreground mb-3">
+                  Your AI Assistant Stats
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Chats", value: "247", icon: Sparkles },
+                    { label: "Time Saved", value: "128h", icon: Zap },
+                    { label: "Accuracy", value: "98%", icon: Lightbulb },
+                    { label: "Projects", value: "12", icon: FileTextIcon },
+                  ].map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <div key={s.label} className="rounded-xl bg-card/40 border border-border/60 p-3">
+                        <div className="flex items-center gap-2 text-mint">
+                          <Icon className="w-4 h-4" />
+                          <div className="text-xl font-bold text-foreground">{s.value}</div>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1">{s.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
