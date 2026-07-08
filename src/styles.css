@@ -122,7 +122,7 @@
   --muted: oklch(0.18 0.012 175);
   --muted-foreground: oklch(0.68 0.02 180);
   --accent: oklch(0.82 0.17 170);
-  --accent-foreground: oklch(0.1 0.01 175));
+  --accent-foreground: oklch(0.1 0.01 175);
   --destructive: oklch(0.68 0.2 25);
   --destructive-foreground: oklch(0.98 0.01 155);
   --border: color-mix(in oklab, oklch(0.82 0.17 170) 14%, transparent);
