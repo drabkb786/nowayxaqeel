@@ -913,10 +913,34 @@ function SingleChat({
     recognitionRef.current = null;
   };
 
+  // Create/resume a persistent AudioContext during a user gesture. Browsers
+  // block audio playback for contexts created outside a gesture, so TTS later
+  // in an async callback would be silent without this pre-unlock.
+  const unlockAudioContext = () => {
+    try {
+      const AudioCtor = (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+      if (!AudioCtor) return;
+      let ctx = ttsAudioCtxRef.current;
+      if (!ctx || ctx.state === "closed") {
+        ctx = new AudioCtor({ sampleRate: 24000 });
+        ttsAudioCtxRef.current = ctx;
+      }
+      if (ctx.state === "suspended") { void ctx.resume().catch(() => {}); }
+      // Play a tiny silent buffer to guarantee the context is unlocked.
+      const buffer = ctx.createBuffer(1, 1, 24000);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch { /* ignore */ }
+  };
+
   const startRecording = async (live: boolean) => {
     setMicErr(null);
     setMicNeedsNewTab(false);
+    unlockAudioContext();
     if (recordingRef.current) return;
+
 
     if (typeof window !== "undefined" && !window.isSecureContext) {
       setMicErr("Mic sirf HTTPS pe kaam karta hai.");
