@@ -944,8 +944,7 @@ function SingleChat({
       setRecording(true);
       setLiveMode(live);
       setMicNeedsNewTab(false);
-      if (live) startVAD(stream);
-      startSegment();
+      startCapture(stream);
     } catch (err) {
       stopMicStream();
       recordingRef.current = false;
