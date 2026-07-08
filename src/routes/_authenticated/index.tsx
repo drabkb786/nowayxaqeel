@@ -747,58 +747,122 @@ function SingleChat({
   };
 
   const cancelSpeaking = () => {
+    try { ttsAbortRef.current?.abort(); } catch { /* ignore */ }
+    ttsAbortRef.current = null;
     try { if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); } catch { /* ignore */ }
+    try { void ttsAudioCtxRef.current?.close(); } catch { /* ignore */ }
+    ttsAudioCtxRef.current = null;
     setTranscribing(false);
   };
 
-  const pickVoiceForText = (text: string): SpeechSynthesisVoice | null => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices || voices.length === 0) return null;
-    const hasUrduScript = /[\u0600-\u06FF]/.test(text);
-    if (hasUrduScript) {
-      return (
-        voices.find((v) => /^ur(-|_)/i.test(v.lang)) ??
-        voices.find((v) => /^hi(-|_)/i.test(v.lang)) ??
-        voices.find((v) => /^ar(-|_)/i.test(v.lang)) ??
-        null
-      );
-    }
-    return voices.find((v) => /^en(-|_)/i.test(v.lang)) ?? null;
-  };
+  // Stream Gemini/OpenAI TTS from /api/tts as raw PCM (24 kHz mono s16le)
+  // and play chunks progressively via Web Audio. Falls back to browser SpeechSynthesis on error.
+  const speakText = async (text: string) => {
+    if (typeof window === "undefined") return;
+    cancelSpeaking();
+    const controller = new AbortController();
+    ttsAbortRef.current = controller;
+    setTranscribing(true);
 
-  const speakText = (text: string) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      const hasUrduScript = /[\u0600-\u06FF]/.test(text);
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = hasUrduScript ? 0.95 : 1.02;
-      u.pitch = 1;
-      u.volume = 1;
-      u.lang = hasUrduScript ? "ur-PK" : "en-US";
-      const voice = pickVoiceForText(text);
-      if (voice) u.voice = voice;
-      u.onstart = () => setTranscribing(true);
-      u.onend = () => {
-        setTranscribing(false);
-        if (liveModeRef.current && !recordingRef.current) {
-          void startRecording(true);
-        }
-      };
-      u.onerror = () => setTranscribing(false);
-      if (window.speechSynthesis.getVoices().length === 0) {
-        const once = () => {
-          window.speechSynthesis.removeEventListener("voiceschanged", once);
-          const v = pickVoiceForText(text);
-          if (v) u.voice = v;
-          window.speechSynthesis.speak(u);
-        };
-        window.speechSynthesis.addEventListener("voiceschanged", once);
-      } else {
-        window.speechSynthesis.speak(u);
+    const onDone = () => {
+      setTranscribing(false);
+      if (liveModeRef.current && !recordingRef.current) {
+        void startRecording(true);
       }
-    } catch { /* ignore */ }
+    };
+
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice: "alloy" }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) throw new Error(`TTS ${res.status}`);
+
+      const AudioCtor = (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+      if (!AudioCtor) throw new Error("No AudioContext");
+      const ctx = new AudioCtor({ sampleRate: 24000 });
+      ttsAudioCtxRef.current = ctx;
+      if (ctx.state === "suspended") { try { await ctx.resume(); } catch { /* ignore */ } }
+
+      let playhead = 0;
+      let pending = new Uint8Array(0);
+      let scheduled = 0;
+      let ended = false;
+      const checkEnd = () => {
+        if (ended && scheduled === 0) onDone();
+      };
+
+      const playChunk = (incoming: Uint8Array) => {
+        const merged = new Uint8Array(pending.length + incoming.length);
+        merged.set(pending);
+        merged.set(incoming, pending.length);
+        const usable = merged.length - (merged.length % 2);
+        pending = merged.slice(usable);
+        if (usable === 0) return;
+        const samples = new Int16Array(merged.buffer, 0, usable / 2);
+        const floats = new Float32Array(samples.length);
+        for (let i = 0; i < samples.length; i++) floats[i] = samples[i] / 32768;
+        const buffer = ctx.createBuffer(1, floats.length, 24000);
+        buffer.copyToChannel(floats, 0);
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        if (playhead === 0) playhead = ctx.currentTime + 0.05;
+        else playhead = Math.max(playhead, ctx.currentTime);
+        scheduled += 1;
+        src.onended = () => { scheduled = Math.max(0, scheduled - 1); checkEnd(); };
+        src.start(playhead);
+        playhead += buffer.duration;
+      };
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuf = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        sseBuf += decoder.decode(value, { stream: true });
+        // Parse SSE events (data: ...\n\n)
+        let idx: number;
+        while ((idx = sseBuf.indexOf("\n\n")) !== -1) {
+          const raw = sseBuf.slice(0, idx);
+          sseBuf = sseBuf.slice(idx + 2);
+          const line = raw.split("\n").find((l) => l.startsWith("data:"));
+          if (!line) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === "[DONE]") continue;
+          try {
+            const evt = JSON.parse(data) as { type?: string; audio?: string };
+            if (evt.type === "speech.audio.delta" && evt.audio) {
+              const bin = atob(evt.audio);
+              const bytes = new Uint8Array(bin.length);
+              for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+              playChunk(bytes);
+            }
+          } catch { /* ignore malformed */ }
+        }
+      }
+      ended = true;
+      checkEnd();
+    } catch (err) {
+      if ((err as { name?: string })?.name === "AbortError") return;
+      // Fallback to browser speechSynthesis so live mode still speaks something.
+      try {
+        if ("speechSynthesis" in window) {
+          const hasUrduScript = /[\u0600-\u06FF]/.test(text);
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = hasUrduScript ? "ur-PK" : "en-US";
+          u.rate = hasUrduScript ? 0.95 : 1.02;
+          u.onend = onDone;
+          u.onerror = onDone;
+          window.speechSynthesis.speak(u);
+          return;
+        }
+      } catch { /* ignore */ }
+      onDone();
+    }
   };
 
   const clearSilenceTimer = () => {
