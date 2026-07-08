@@ -13,6 +13,7 @@ import { Route as IdRouteImport } from './routes/id'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiResearchRouteImport } from './routes/api/research'
 import { Route as ApiPdfRouteImport } from './routes/api/pdf'
@@ -37,6 +38,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiTtsRoute = ApiTtsRouteImport.update({
+  id: '/api/tts',
+  path: '/api/tts',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
   id: '/api/transcribe',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/api/pdf': typeof ApiPdfRoute
   '/api/research': typeof ApiResearchRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/tts': typeof ApiTtsRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/api/pdf': typeof ApiPdfRoute
   '/api/research': typeof ApiResearchRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/tts': typeof ApiTtsRoute
   '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesById {
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/api/pdf': typeof ApiPdfRoute
   '/api/research': typeof ApiResearchRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/tts': typeof ApiTtsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/api/pdf'
     | '/api/research'
     | '/api/transcribe'
+    | '/api/tts'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/api/pdf'
     | '/api/research'
     | '/api/transcribe'
+    | '/api/tts'
     | '/'
   id:
     | '__root__'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/api/pdf'
     | '/api/research'
     | '/api/transcribe'
+    | '/api/tts'
     | '/_authenticated/'
   fileRoutesById: FileRoutesById
 }
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   ApiPdfRoute: typeof ApiPdfRoute
   ApiResearchRoute: typeof ApiResearchRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
+  ApiTtsRoute: typeof ApiTtsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -170,6 +183,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/tts': {
+      id: '/api/tts'
+      path: '/api/tts'
+      fullPath: '/api/tts'
+      preLoaderRoute: typeof ApiTtsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/transcribe': {
       id: '/api/transcribe'
@@ -229,6 +249,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPdfRoute: ApiPdfRoute,
   ApiResearchRoute: ApiResearchRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
+  ApiTtsRoute: ApiTtsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
