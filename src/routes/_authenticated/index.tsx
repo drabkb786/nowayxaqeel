@@ -608,33 +608,24 @@ function SingleChat({
       api: "/api/chat",
       prepareSendMessagesRequest: ({ api, body, messages }) => {
         const live = liveModeRef.current;
-        // Only trigger heavy Deep Research when the user explicitly asks for it.
-        const lastUserText = (() => {
-          for (let i = messages.length - 1; i >= 0; i--) {
-            const m = messages[i] as unknown as { role: string; parts?: Array<{ type: string; text?: string }> };
-            if (m.role !== "user") continue;
-            return (m.parts ?? []).filter((p) => p.type === "text").map((p) => p.text ?? "").join(" ").toLowerCase();
-          }
-          return "";
-        })();
-        const RESEARCH_TRIGGERS = /(research karo|deep research|search karo|web search|detail(ed)? research|puri research|internet se|latest news|source(s)? do|citations?)/i;
-        const wantsResearch = research && !live && RESEARCH_TRIGGERS.test(lastUserText);
         const depthDirective = live
           ? "\n\nRESPONSE MODE: VOICE ASSISTANT (like a friend on a phone call).\n" +
             "- Talk casually and naturally, 1-2 short spoken sentences. Plain text only — NO markdown, NO lists, NO code, NO headings, NO links.\n" +
             "- Match the user's language and script exactly. If they speak Urdu script, reply in Urdu script. If they speak Roman Urdu (e.g. 'kya haal hai', 'tum kaise ho', 'sunao'), reply in the SAME Roman Urdu style.\n" +
-            "- For small talk / greetings / chit-chat ('kya haal hai', 'kaise ho', 'assalam o alaikum', 'hello', 'kya kar rahe ho', 'sunao'), reply like a human friend would — e.g. 'Bilkul theek, tum sunao!' — do NOT explain the phrase, do NOT give definitions, do NOT lecture.\n" +
-            "- Only give a detailed/long/structured answer, do a web search, generate a PDF, generate an image, or do any 'task' when the user EXPLICITLY orders it with words like 'search karo', 'batao details', 'explain karo', 'pdf banao', 'image banao', 'likh ke do', 'research karo'. Otherwise keep it a short conversational reply.\n" +
-            "- Never read out symbols, asterisks, or formatting. Never say 'as an AI'. Never dump encyclopedic info unasked."
+            "- For small talk / greetings / chit-chat, reply like a human friend would — e.g. 'Bilkul theek, tum sunao!' — do NOT explain the phrase, do NOT give definitions, do NOT lecture.\n" +
+            "- Never read out symbols, asterisks, or formatting. Never say 'as an AI'."
           : depth === "extended"
-            ? "\n\nRESPONSE DEPTH: EXTENDED. Give an exhaustively detailed, deeply thorough response. Cover background, nuances, edge cases, examples, step-by-step reasoning, comparisons, pros/cons, and practical tips. Prefer long-form structured sections."
-            : "\n\nRESPONSE DEPTH: STANDARD. Give a clear, detailed but focused answer — well structured, not overly long.";
+            ? "\n\nRESPONSE DEPTH: EXTENDED. Give a thorough, well-structured answer with clear sections, examples, and practical tips. When the user explicitly asks for a PDF, image, or file, do that task."
+            : "\n\nRESPONSE DEPTH: STANDARD. Give a clear, focused answer.";
         const activeModel = live ? "openai/gpt-5.5" : model;
         return {
-          api: wantsResearch ? "/api/research" : (api ?? "/api/chat"),
+          // Always use fast /api/chat. Deep research route was too slow and
+          // caused messages to hang without replies.
+          api: api ?? "/api/chat",
           body: { ...(body ?? {}), messages, model: activeModel, system: (system ?? "") + depthDirective, live },
         };
       },
+
 
     }),
     [model, system, depth, research],
@@ -805,9 +796,15 @@ function SingleChat({
 
       const AudioCtor = (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
       if (!AudioCtor) throw new Error("No AudioContext");
-      const ctx = new AudioCtor({ sampleRate: 24000 });
-      ttsAudioCtxRef.current = ctx;
+      // Reuse a single persistent AudioContext — creating a new one after the
+      // user gesture window closes leaves it suspended and silently silent.
+      let ctx = ttsAudioCtxRef.current;
+      if (!ctx || ctx.state === "closed") {
+        ctx = new AudioCtor({ sampleRate: 24000 });
+        ttsAudioCtxRef.current = ctx;
+      }
       if (ctx.state === "suspended") { try { await ctx.resume(); } catch { /* ignore */ } }
+
 
       let playhead = 0;
       let pending = new Uint8Array(0);
