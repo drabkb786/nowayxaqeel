@@ -589,16 +589,20 @@ function ChatPage() {
     </div>
   );
 }
+function ModelPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-1.5 rounded-lg bg-muted border border-border text-xs outline-none hover:bg-accent cursor-pointer text-foreground max-w-[180px] sm:max-w-none truncate"
-    >
-      {MODELS.map((m) => (
-        <option key={m.id} value={m.id} className="bg-background text-foreground">{m.label}</option>
-      ))}
-    </select>
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none pl-4 pr-10 py-2.5 rounded-2xl bg-card/70 border border-mint/20 text-sm outline-none hover:border-mint/40 cursor-pointer text-foreground min-w-[220px] font-medium"
+      >
+        {MODELS.map((m) => (
+          <option key={m.id} value={m.id} className="bg-background text-foreground">{m.label}</option>
+        ))}
+      </select>
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▾</span>
+    </div>
   );
 }
 
