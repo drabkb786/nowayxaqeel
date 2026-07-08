@@ -682,6 +682,8 @@ function SingleChat({
   const liveModeRef = useRef(false);
   const submitRef = useRef<(() => void) | null>(null);
   const spokenAssistantIdsRef = useRef<Set<string>>(new Set());
+  const ttsAbortRef = useRef<AbortController | null>(null);
+  const ttsAudioCtxRef = useRef<AudioContext | null>(null);
   const SILENCE_MS = 1800;
 
   const isInsideFrame = () => {
