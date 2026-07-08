@@ -943,15 +943,24 @@ function SingleChat({
     if (rec && rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
   };
 
+  const requestMicWithPrompt = async (live: boolean) => {
+    if (recording) { stopRecording(); return; }
+    setMicErr(null);
+    const embed = isMicBlockedByEmbed();
+    const state = await getMicPermissionState();
+    if (state === "granted" && !embed) { void startRecording(live); return; }
+    setMicPrompt({ live, embed, denied: state === "denied" });
+  };
+
   const toggleRecording = () => {
-    if (recording) stopRecording();
-    else void startRecording(false);
+    if (recording && !liveMode) { stopRecording(); return; }
+    void requestMicWithPrompt(false);
   };
 
   const toggleLive = () => {
-    if (recording && liveMode) stopRecording();
-    else if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); if (audioStreamRef.current) startVAD(audioStreamRef.current); }
-    else void startRecording(true);
+    if (recording && liveMode) { stopRecording(); return; }
+    if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); if (audioStreamRef.current) startVAD(audioStreamRef.current); return; }
+    void requestMicWithPrompt(true);
   };
 
   useEffect(() => {
