@@ -881,7 +881,7 @@ function SingleChat({
       const rec = new Ctor();
       rec.continuous = true;
       rec.interimResults = true;
-      rec.lang = (typeof navigator !== "undefined" && navigator.language) ? navigator.language : "en-US";
+      rec.lang = "ur-PK";
 
       // Seed with whatever is already in the box so we append rather than replace.
       baseInputRef.current = input;
