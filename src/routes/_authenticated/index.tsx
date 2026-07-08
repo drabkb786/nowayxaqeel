@@ -671,6 +671,7 @@ function SingleChat({
   const [liveMode, setLiveMode] = useState(false);
   const [micErr, setMicErr] = useState<string | null>(null);
   const [micNeedsNewTab, setMicNeedsNewTab] = useState(false);
+  const [micPrompt, setMicPrompt] = useState<null | { live: boolean; embed: boolean; denied: boolean }>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
