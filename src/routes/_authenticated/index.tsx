@@ -331,15 +331,6 @@ function ChatPage() {
           </button>
         </div>
 
-        <div className={`px-3 mt-3 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-foreground/40" />
-            <input
-              placeholder="Search chats..."
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-sidebar-accent/50 border border-sidebar-border outline-none focus:border-mint/40 text-sidebar-foreground placeholder:text-sidebar-foreground/40"
-            />
-          </div>
-        </div>
 
         <div className={`px-4 pt-4 pb-1 text-[10px] tracking-widest uppercase text-sidebar-foreground/40 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           Recent
