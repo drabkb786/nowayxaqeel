@@ -272,15 +272,32 @@ function clean(s: unknown): string {
           : typeof s === "object"
             ? JSON.stringify(s)
             : String(s);
-  return str
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2013\u2014]/g, "-")
-    .replace(/\u2026/g, "...")
-    .replace(/\u00A0/g, " ")
-    .replace(/[\u2022\u25CF\u25E6\u2043\u2219]/g, "-")
-    // eslint-disable-next-line no-control-regex
-    .replace(/[^\x00-\xFF]/g, "");
+  try {
+    return str
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, "-")
+      .replace(/\u2026/g, "...")
+      .replace(/\u00A0/g, " ")
+      .replace(/[\u2022\u25CF\u25E6\u2043\u2219]/g, "-")
+      // eslint-disable-next-line no-control-regex
+      .replace(/[^\x00-\xFF]/g, "");
+  } catch (err) {
+    const preview =
+      typeof str === "string"
+        ? str.slice(0, 200)
+        : `typeof=${typeof str}`;
+    console.error("[pdf.ts clean] replace chain failed:", {
+      inputType: typeof s,
+      coercedType: typeof str,
+      isString: typeof str === "string",
+      preview,
+      strValue: str,
+      originalInput: s,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 }
 
 const PAGE_W = 612;   // US Letter
