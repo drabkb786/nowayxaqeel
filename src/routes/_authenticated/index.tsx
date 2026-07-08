@@ -1025,6 +1025,21 @@ function SingleChat({
 
   const busy = status === "submitted" || status === "streaming" || imgBusy;
 
+  // Live mode: speak the newest assistant message once streaming completes.
+  useEffect(() => {
+    if (!liveMode) return;
+    if (status === "streaming" || status === "submitted") return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (spokenAssistantIdsRef.current.has(last.id)) return;
+    const text = textOf(last).trim();
+    if (!text) return;
+    spokenAssistantIdsRef.current.add(last.id);
+    speakText(text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, status, liveMode]);
+
+
   const generateImage = async (prompt: string, imgModel: string = model) => {
     setImgBusy(true);
     setImgErr(null);
