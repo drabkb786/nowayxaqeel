@@ -672,22 +672,17 @@ function SingleChat({
   const [micErr, setMicErr] = useState<string | null>(null);
   const [micNeedsNewTab, setMicNeedsNewTab] = useState(false);
   const [micPrompt, setMicPrompt] = useState<null | { live: boolean; embed: boolean; denied: boolean }>(null);
-  const audioStreamRef = useRef<MediaStream | null>(null);
-  const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // SpeechRecognition-based mic (Web Speech API)
+  const recognitionRef = useRef<{ start: () => void; stop: () => void; abort: () => void; onresult: ((e: unknown) => void) | null; onerror: ((e: unknown) => void) | null; onend: (() => void) | null; onstart: (() => void) | null; continuous: boolean; interimResults: boolean; lang: string; } | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const pcmChunksRef = useRef<Float32Array[]>([]);
-  const pcmSampleRateRef = useRef<number>(48000);
-  const vadStateRef = useRef<{ lastVoice: number; hadVoice: boolean }>({ lastVoice: 0, hadVoice: false });
-  const pendingSubmitRef = useRef(false);
-  const SEGMENT_MS = 4000;
-  const SILENCE_MS = 1200;
-  const TARGET_SR = 16000;
+  const finalTextRef = useRef<string>("");
+  const baseInputRef = useRef<string>("");
+  const shouldRestartRef = useRef(false);
   const recordingRef = useRef(false);
   const liveModeRef = useRef(false);
   const submitRef = useRef<(() => void) | null>(null);
+  const spokenAssistantIdsRef = useRef<Set<string>>(new Set());
+  const SILENCE_MS = 1800;
 
   const isInsideFrame = () => {
     try {
