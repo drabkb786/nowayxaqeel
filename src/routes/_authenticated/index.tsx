@@ -672,22 +672,17 @@ function SingleChat({
   const [micErr, setMicErr] = useState<string | null>(null);
   const [micNeedsNewTab, setMicNeedsNewTab] = useState(false);
   const [micPrompt, setMicPrompt] = useState<null | { live: boolean; embed: boolean; denied: boolean }>(null);
-  const audioStreamRef = useRef<MediaStream | null>(null);
-  const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // SpeechRecognition-based mic (Web Speech API)
+  const recognitionRef = useRef<{ start: () => void; stop: () => void; abort: () => void; onresult: ((e: unknown) => void) | null; onerror: ((e: unknown) => void) | null; onend: (() => void) | null; onstart: (() => void) | null; continuous: boolean; interimResults: boolean; lang: string; } | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const pcmChunksRef = useRef<Float32Array[]>([]);
-  const pcmSampleRateRef = useRef<number>(48000);
-  const vadStateRef = useRef<{ lastVoice: number; hadVoice: boolean }>({ lastVoice: 0, hadVoice: false });
-  const pendingSubmitRef = useRef(false);
-  const SEGMENT_MS = 4000;
-  const SILENCE_MS = 1200;
-  const TARGET_SR = 16000;
+  const finalTextRef = useRef<string>("");
+  const baseInputRef = useRef<string>("");
+  const shouldRestartRef = useRef(false);
   const recordingRef = useRef(false);
   const liveModeRef = useRef(false);
   const submitRef = useRef<(() => void) | null>(null);
+  const spokenAssistantIdsRef = useRef<Set<string>>(new Set());
+  const SILENCE_MS = 1800;
 
   const isInsideFrame = () => {
     try {
@@ -735,260 +730,205 @@ function SingleChat({
     }
   };
 
-  const stopMicStream = () => {
-    audioStreamRef.current?.getTracks().forEach((t) => t.stop());
-    audioStreamRef.current = null;
-    if (processorRef.current) { try { processorRef.current.disconnect(); } catch { /* ignore */ } processorRef.current = null; }
-    if (sourceNodeRef.current) { try { sourceNodeRef.current.disconnect(); } catch { /* ignore */ } sourceNodeRef.current = null; }
-    if (audioCtxRef.current) { try { void audioCtxRef.current.close(); } catch { /* ignore */ } audioCtxRef.current = null; }
-    if (segmentTimerRef.current) { clearTimeout(segmentTimerRef.current); segmentTimerRef.current = null; }
+  const getSpeechRecognitionCtor = (): (new () => {
+    start: () => void; stop: () => void; abort: () => void;
+    onresult: ((e: unknown) => void) | null;
+    onerror: ((e: unknown) => void) | null;
+    onend: (() => void) | null;
+    onstart: (() => void) | null;
+    continuous: boolean; interimResults: boolean; lang: string;
+  }) | null => {
+    if (typeof window === "undefined") return null;
+    const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
+    const ctor = (w.SpeechRecognition ?? w.webkitSpeechRecognition) as (new () => never) | undefined;
+    return (ctor ?? null) as unknown as ReturnType<typeof getSpeechRecognitionCtor>;
+  };
+
+  const cancelSpeaking = () => {
+    try { if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); } catch { /* ignore */ }
+    setTranscribing(false);
+  };
+
+  const speakText = (text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.02; u.pitch = 1; u.volume = 1;
+      u.onstart = () => setTranscribing(true);
+      u.onend = () => {
+        setTranscribing(false);
+        // In live mode, resume listening after the AI finishes speaking.
+        if (liveModeRef.current && !recordingRef.current) {
+          void startRecording(true);
+        }
+      };
+      u.onerror = () => setTranscribing(false);
+      window.speechSynthesis.speak(u);
+    } catch { /* ignore */ }
+  };
+
+  const clearSilenceTimer = () => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-    pcmChunksRef.current = [];
   };
 
-  // Downsample Float32 PCM to targetRate (naive decimation is fine for speech at 16k).
-  const downsample = (input: Float32Array, inRate: number, outRate: number): Float32Array => {
-    if (outRate >= inRate) return input;
-    const ratio = inRate / outRate;
-    const outLen = Math.floor(input.length / ratio);
-    const out = new Float32Array(outLen);
-    for (let i = 0; i < outLen; i++) {
-      const start = Math.floor(i * ratio);
-      const end = Math.min(input.length, Math.floor((i + 1) * ratio));
-      let sum = 0; let n = 0;
-      for (let j = start; j < end; j++) { sum += input[j]; n++; }
-      out[i] = n > 0 ? sum / n : 0;
-    }
-    return out;
-  };
-
-  // Encode 16-bit mono PCM as a complete WAV file.
-  const encodeWav = (samples: Float32Array, sampleRate: number): Blob => {
-    const buffer = new ArrayBuffer(44 + samples.length * 2);
-    const view = new DataView(buffer);
-    const writeStr = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-    writeStr(0, "RIFF");
-    view.setUint32(4, 36 + samples.length * 2, true);
-    writeStr(8, "WAVE");
-    writeStr(12, "fmt ");
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);          // PCM
-    view.setUint16(22, 1, true);          // mono
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);          // block align
-    view.setUint16(34, 16, true);         // bits per sample
-    writeStr(36, "data");
-    view.setUint32(40, samples.length * 2, true);
-    let off = 44;
-    for (let i = 0; i < samples.length; i++, off += 2) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-    }
-    return new Blob([buffer], { type: "audio/wav" });
-  };
-
-  const uploadSegmentStreaming = async (blob: Blob) => {
-    const fd = new FormData();
-    fd.append("file", blob, "recording.wav");
-    fd.append("stream", "true");
-    setTranscribing(true);
-    try {
-      const res = await fetch("/api/transcribe", { method: "POST", body: fd });
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        throw new Error(errText || `Transcription failed (${res.status})`);
-      }
-      if (!res.body) return;
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let appended = "";
-      let doneText = "";
-      const appendDelta = (delta: string) => {
-        appended += delta;
-        setInput((prev) => {
-          const sep = prev && !prev.endsWith(" ") && !delta.startsWith(" ") ? " " : "";
-          return prev + sep + delta;
-        });
-      };
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let idx: number;
-        while ((idx = buffer.indexOf("\n\n")) !== -1) {
-          const evt = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 2);
-          for (const line of evt.split("\n")) {
-            const l = line.trim();
-            if (!l.startsWith("data:")) continue;
-            const payload = l.slice(5).trim();
-            if (!payload || payload === "[DONE]") continue;
-            try {
-              const j = JSON.parse(payload) as { type?: string; delta?: string; text?: string };
-              if (j.type === "transcript.text.delta" && j.delta) appendDelta(j.delta);
-              else if (j.type === "transcript.text.done" && typeof j.text === "string") doneText = j.text;
-            } catch { /* ignore */ }
-          }
-        }
-      }
-      if (!appended && doneText) appendDelta(doneText);
-      requestAnimationFrame(() => textareaRef.current?.focus());
-    } catch (err) {
-      setMicErr(err instanceof Error ? err.message : String(err));
-    } finally {
-      setTranscribing(false);
-    }
-  };
-
-  const flushSegment = (submitAfter: boolean) => {
-    const chunks = pcmChunksRef.current;
-    pcmChunksRef.current = [];
-    if (chunks.length === 0) return;
-    const total = chunks.reduce((n, c) => n + c.length, 0);
-    const merged = new Float32Array(total);
-    let off = 0;
-    for (const c of chunks) { merged.set(c, off); off += c.length; }
-    // Quick energy check — skip near-silent segments so we don't upload empty audio.
-    let sum = 0;
-    for (let i = 0; i < merged.length; i++) sum += merged[i] * merged[i];
-    const rms = Math.sqrt(sum / Math.max(1, merged.length));
-    if (rms < 0.005) return;
-    const down = downsample(merged, pcmSampleRateRef.current, TARGET_SR);
-    const wav = encodeWav(down, TARGET_SR);
-    if (wav.size < 2048) return;
-    void uploadSegmentStreaming(wav).then(() => {
-      if (submitAfter && liveModeRef.current) {
+  const scheduleSilenceAutoSubmit = () => {
+    clearSilenceTimer();
+    silenceTimerRef.current = setTimeout(() => {
+      if (!recordingRef.current) return;
+      // Commit whatever we have and submit.
+      shouldRestartRef.current = false;
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      // Give the recognizer a beat to flush final results, then submit.
+      setTimeout(() => {
         submitRef.current?.();
-      }
-    });
+      }, 120);
+    }, SILENCE_MS);
   };
 
-  const startCapture = (stream: MediaStream) => {
-    try {
-      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AC();
-      audioCtxRef.current = ctx;
-      pcmSampleRateRef.current = ctx.sampleRate;
-      const src = ctx.createMediaStreamSource(stream);
-      sourceNodeRef.current = src;
-      const bufferSize = 4096;
-      const processor = ctx.createScriptProcessor(bufferSize, 1, 1);
-      processorRef.current = processor;
-      vadStateRef.current = { lastVoice: Date.now(), hadVoice: false };
-      processor.onaudioprocess = (e) => {
-        if (!recordingRef.current) return;
-        const input = e.inputBuffer.getChannelData(0);
-        // Copy — the underlying buffer is reused.
-        pcmChunksRef.current.push(new Float32Array(input));
-        // Compute RMS for VAD.
-        let s = 0;
-        for (let i = 0; i < input.length; i++) s += input[i] * input[i];
-        const rms = Math.sqrt(s / input.length);
-        const now = Date.now();
-        const st = vadStateRef.current;
-        if (rms > 0.02) { st.lastVoice = now; st.hadVoice = true; }
-        if (liveModeRef.current && st.hadVoice && now - st.lastVoice > SILENCE_MS) {
-          st.hadVoice = false;
-          st.lastVoice = now;
-          flushSegment(true);
-        }
-      };
-      src.connect(processor);
-      // Route to a muted gain so the processor actually runs without feedback.
-      const sink = ctx.createGain();
-      sink.gain.value = 0;
-      processor.connect(sink);
-      sink.connect(ctx.destination);
-      // Segment timer: in non-live mode, flush every SEGMENT_MS.
-      const tick = () => {
-        if (!recordingRef.current) return;
-        if (!liveModeRef.current) flushSegment(false);
-        segmentTimerRef.current = setTimeout(tick, SEGMENT_MS);
-      };
-      segmentTimerRef.current = setTimeout(tick, SEGMENT_MS);
-    } catch (err) {
-      setMicErr(err instanceof Error ? err.message : String(err));
-    }
+  const stopMicStream = () => {
+    shouldRestartRef.current = false;
+    clearSilenceTimer();
+    try { recognitionRef.current?.abort(); } catch { /* ignore */ }
+    recognitionRef.current = null;
   };
-
-
 
   const startRecording = async (live: boolean) => {
     setMicErr(null);
     setMicNeedsNewTab(false);
     if (recordingRef.current) return;
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      setMicErr("Mic browser me support nahi kar raha.");
-      return;
-    }
+
     if (typeof window !== "undefined" && !window.isSecureContext) {
       setMicErr("Mic sirf HTTPS pe kaam karta hai.");
       return;
     }
     if (isMicBlockedByEmbed()) {
       setMicNeedsNewTab(true);
-      if (openMicInNewTab(live)) {
-        setMicErr("Preview frame mic ko block kar raha hai — mic new tab me khul raha hai.");
-      } else {
-        setMicErr("Preview frame mic ko block kar raha hai — Open in new tab par click kar ke mic use karein.");
-      }
+      if (openMicInNewTab(live)) setMicErr("Preview frame mic ko block kar raha hai — mic new tab me khul raha hai.");
+      else setMicErr("Preview frame mic ko block kar raha hai — Open in new tab par click kar ke mic use karein.");
       return;
     }
+
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) {
+      setMicErr("Yeh browser live speech-to-text support nahi karta — Chrome / Edge try karein.");
+      return;
+    }
+
+    // If the AI is speaking, interrupt it immediately.
+    cancelSpeaking();
+
+    // Ensure mic permission is granted (SpeechRecognition itself will prompt otherwise).
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+        s.getTracks().forEach((t) => t.stop());
+      } catch (err) {
+        const name = (err as { name?: string })?.name ?? "";
+        const msg = err instanceof Error ? err.message : String(err);
+        if (name === "NotAllowedError" || name === "SecurityError" || /permission/i.test(msg)) {
+          const state = await getMicPermissionState();
+          if (isMicBlockedByEmbed() || isInsideFrame()) {
+            setMicNeedsNewTab(true);
+            if (openMicInNewTab(live)) setMicErr("Preview frame mic ko block kar raha hai — mic new tab me khul raha hai.");
+            else setMicErr("Preview frame mic ko block kar raha hai — Open in new tab par click kar ke mic use karein.");
+          } else if (state === "denied") {
+            setMicErr("Is domain par mic blocked hai — URL bar lock icon se Microphone Allow karke reload karein.");
+          } else {
+            setMicErr("Mic permission chahiye — popup me Allow dabayein.");
+          }
+          return;
+        } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+          setMicErr("Koi mic detect nahi hua — mic connect karo aur try karo."); return;
+        } else if (name === "NotReadableError") {
+          setMicErr("Mic kisi doosri app me use ho raha hai — us app ko band karo."); return;
+        }
+      }
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioStreamRef.current = stream;
-      recordingRef.current = true;
-      liveModeRef.current = live;
-      setRecording(true);
-      setLiveMode(live);
-      setMicNeedsNewTab(false);
-      startCapture(stream);
+      const rec = new Ctor();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = (typeof navigator !== "undefined" && navigator.language) ? navigator.language : "en-US";
+
+      // Seed with whatever is already in the box so we append rather than replace.
+      baseInputRef.current = input;
+      finalTextRef.current = "";
+
+      rec.onstart = () => {
+        recordingRef.current = true;
+        liveModeRef.current = live;
+        setRecording(true);
+        setLiveMode(live);
+        setMicNeedsNewTab(false);
+      };
+
+      rec.onresult = (evt: unknown) => {
+        const e = evt as { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> };
+        let interim = "";
+        let newFinal = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          const txt = r[0]?.transcript ?? "";
+          if (r.isFinal) newFinal += txt;
+          else interim += txt;
+        }
+        if (newFinal) finalTextRef.current = (finalTextRef.current + " " + newFinal).replace(/\s+/g, " ").trim();
+        const base = baseInputRef.current;
+        const composed = [base, finalTextRef.current, interim].filter((s) => s && s.trim().length > 0).join(" ").replace(/\s+/g, " ");
+        setInput(composed);
+        // Any speech resets the silence timer.
+        scheduleSilenceAutoSubmit();
+      };
+
+      rec.onerror = (evt: unknown) => {
+        const err = evt as { error?: string };
+        const code = err?.error ?? "";
+        if (code === "not-allowed" || code === "service-not-allowed") {
+          setMicErr("Mic permission blocked hai — URL bar lock icon se Microphone Allow karein.");
+          shouldRestartRef.current = false;
+        } else if (code === "no-speech" || code === "audio-capture" || code === "network" || code === "aborted") {
+          // transient — allow onend to auto-restart if still recording
+        } else if (code) {
+          setMicErr(`Mic error: ${code}`);
+        }
+      };
+
+      rec.onend = () => {
+        // If recording flag is still true, restart (auto-recovery from random drops).
+        if (recordingRef.current && shouldRestartRef.current) {
+          try { rec.start(); return; } catch { /* fallthrough to teardown */ }
+        }
+        recordingRef.current = false;
+        setRecording(false);
+      };
+
+      recognitionRef.current = rec;
+      shouldRestartRef.current = true;
+      rec.start();
+      scheduleSilenceAutoSubmit();
     } catch (err) {
-      stopMicStream();
+      shouldRestartRef.current = false;
       recordingRef.current = false;
       liveModeRef.current = false;
       setRecording(false);
       setLiveMode(false);
-      const name = (err as { name?: string })?.name ?? "";
-      const msg = err instanceof Error ? err.message : String(err);
-      if (name === "NotAllowedError" || name === "SecurityError" || /permission/i.test(msg)) {
-        const state = await getMicPermissionState();
-        if (isMicBlockedByEmbed() || isInsideFrame()) {
-          setMicNeedsNewTab(true);
-          if (openMicInNewTab(live)) {
-            setMicErr("Preview frame mic ko block kar raha hai — mic new tab me khul raha hai.");
-          } else {
-            setMicErr("Preview frame mic ko block kar raha hai — Open in new tab par click kar ke mic use karein.");
-          }
-        } else if (state === "denied") {
-          setMicErr("Is domain par mic blocked hai — URL bar lock icon se Microphone Allow karke reload karein.");
-        } else {
-          setMicErr("Browser ka mic popup Allow karein; agar popup nahi aaya to page reload kar ke dobara mic dabayein.");
-        }
-      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
-        setMicErr("Koi mic detect nahi hua — mic connect karo aur try karo.");
-      } else if (name === "NotReadableError") {
-        setMicErr("Mic kisi doosri app me use ho raha hai — us app ko band kar ke try karo.");
-      } else {
-        setMicErr(msg || "Mic start nahi ho saka.");
-      }
+      setMicErr(err instanceof Error ? err.message : String(err));
     }
   };
 
-
   const stopRecording = () => {
+    shouldRestartRef.current = false;
     recordingRef.current = false;
-    const wasLive = liveModeRef.current;
     liveModeRef.current = false;
     setRecording(false);
     setLiveMode(false);
-    // Flush anything captured so far (no auto-submit on manual stop).
-    flushSegment(false);
-    void wasLive;
-    stopMicStream();
+    clearSilenceTimer();
+    cancelSpeaking();
+    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
   };
+
 
   const requestMicWithPrompt = async (live: boolean) => {
     if (recording) { stopRecording(); return; }
@@ -1084,6 +1024,21 @@ function SingleChat({
   }, []);
 
   const busy = status === "submitted" || status === "streaming" || imgBusy;
+
+  // Live mode: speak the newest assistant message once streaming completes.
+  useEffect(() => {
+    if (!liveMode) return;
+    if (status === "streaming" || status === "submitted") return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (spokenAssistantIdsRef.current.has(last.id)) return;
+    const text = textOf(last).trim();
+    if (!text) return;
+    spokenAssistantIdsRef.current.add(last.id);
+    speakText(text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, status, liveMode]);
+
 
   const generateImage = async (prompt: string, imgModel: string = model) => {
     setImgBusy(true);
@@ -1391,36 +1346,52 @@ function SingleChat({
               <Paperclip className="w-5 h-5" />
               <input type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
             </label>
-            <button
-              type="button"
-              onClick={toggleRecording}
-              className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 ${
-                recording && !liveMode
-                  ? "bg-red-500/20 text-red-400 animate-pulse"
-                  : transcribing
-                  ? "text-mint animate-pulse"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/60"
-              }`}
-              title={recording && !liveMode ? "Stop recording" : transcribing ? "Transcribing…" : micErr ?? "Voice input (live text)"}
-              aria-label="Voice input"
-              aria-pressed={recording && !liveMode}
-            >
-              <Mic className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={toggleLive}
-              className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 text-[11px] font-semibold tracking-wide ${
-                liveMode
-                  ? "bg-mint/20 text-mint animate-pulse ring-1 ring-mint/40"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/60"
-              }`}
-              title={liveMode ? "Stop Live Q&A" : "Live Q&A — bolo, jawab khud aa jaye ga"}
-              aria-label="Live Q&A"
-              aria-pressed={liveMode}
-            >
-              LIVE
-            </button>
+            {(() => {
+              const listening = recording && !liveMode;
+              const processing = !recording && (transcribing || (busy && !liveMode));
+              const stateClass = listening
+                ? "bg-red-500/25 text-red-400 ring-2 ring-red-500/40 shadow-[0_0_0_6px_rgba(239,68,68,0.12)] animate-pulse"
+                : processing
+                ? "bg-mint/15 text-mint ring-1 ring-mint/40 animate-pulse"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60";
+              const label = listening ? "Listening — click to stop" : processing ? "Processing…" : (micErr ?? "Voice input (live text)");
+              return (
+                <button
+                  type="button"
+                  onClick={toggleRecording}
+                  className={`relative flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 ${stateClass}`}
+                  title={label}
+                  aria-label="Voice input"
+                  aria-pressed={listening}
+                >
+                  <Mic className="w-5 h-5" />
+                  {listening && <span className="absolute inset-0 rounded-full ring-2 ring-red-500/60 animate-ping" aria-hidden />}
+                </button>
+              );
+            })()}
+            {(() => {
+              const liveListening = recording && liveMode;
+              const liveSpeaking = liveMode && (busy || transcribing);
+              const stateClass = liveListening
+                ? "bg-mint/25 text-mint ring-2 ring-mint/50 shadow-[0_0_0_6px_rgba(34,211,153,0.12)] animate-pulse"
+                : liveSpeaking
+                ? "bg-mint/15 text-mint ring-1 ring-mint/40 animate-pulse"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60";
+              const label = liveListening ? "Live — bol rahe hain, sun raha hoon" : liveSpeaking ? "Live — jawab de raha hoon (click to interrupt)" : "Live Q&A — bolo, jawab khud aa jayega";
+              return (
+                <button
+                  type="button"
+                  onClick={toggleLive}
+                  className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 text-[11px] font-semibold tracking-wide ${stateClass}`}
+                  title={label}
+                  aria-label="Live Q&A"
+                  aria-pressed={liveMode}
+                >
+                  LIVE
+                </button>
+              );
+            })()}
+
 
             <div className="flex flex-1 min-w-0 items-end gap-0">
               <textarea
