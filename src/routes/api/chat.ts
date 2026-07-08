@@ -250,7 +250,7 @@ export const Route = createFileRoute("/api/chat")({
           urlContext = `\n\nNOTE: The user provided ${otherUrls.length} URL(s) but the Firecrawl connector is not configured, so the pages could not be scraped. Ask the user to enable Firecrawl or paste the relevant text.`;
         }
 
-        const sys = ((body.system?.trim() ?? "") + COMPARISON_RULES + videoContext + urlContext).trim();
+        const sys = ((body.system?.trim() ?? "") + LANGUAGE_RULES + COMPARISON_RULES + videoContext + urlContext).trim();
         try {
           const { createLovableGateway } = await import("@/lib/ai-gateway.server");
           const gateway = createLovableGateway(key);
