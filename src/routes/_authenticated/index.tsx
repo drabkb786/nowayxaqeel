@@ -1063,10 +1063,18 @@ function SingleChat({
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant") return;
     if (spokenAssistantIdsRef.current.has(last.id)) return;
-    const text = textOf(last).trim();
-    if (!text) return;
+    const raw = textOf(last).trim();
+    if (!raw) return;
     spokenAssistantIdsRef.current.add(last.id);
-    speakText(text);
+    const clean = raw
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`[^`]*`/g, " ")
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/[*_#>~]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    speakText(clean);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, status, liveMode]);
 
