@@ -1241,20 +1241,34 @@ function SingleChat({
             <button
               type="button"
               onClick={toggleRecording}
-              disabled={transcribing}
               className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 ${
-                recording
+                recording && !liveMode
                   ? "bg-red-500/20 text-red-400 animate-pulse"
                   : transcribing
-                  ? "text-mint"
+                  ? "text-mint animate-pulse"
                   : "text-muted-foreground hover:text-foreground hover:bg-background/60"
               }`}
-              title={recording ? "Stop recording" : transcribing ? "Transcribing…" : micErr ?? "Voice input"}
+              title={recording && !liveMode ? "Stop recording" : transcribing ? "Transcribing…" : micErr ?? "Voice input (live text)"}
               aria-label="Voice input"
-              aria-pressed={recording}
+              aria-pressed={recording && !liveMode}
             >
               <Mic className="w-5 h-5" />
             </button>
+            <button
+              type="button"
+              onClick={toggleLive}
+              className={`flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 text-[11px] font-semibold tracking-wide ${
+                liveMode
+                  ? "bg-mint/20 text-mint animate-pulse ring-1 ring-mint/40"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+              }`}
+              title={liveMode ? "Stop Live Q&A" : "Live Q&A — bolo, jawab khud aa jaye ga"}
+              aria-label="Live Q&A"
+              aria-pressed={liveMode}
+            >
+              LIVE
+            </button>
+
             <div className="flex flex-1 min-w-0 items-end gap-0">
               <textarea
                 ref={textareaRef}
