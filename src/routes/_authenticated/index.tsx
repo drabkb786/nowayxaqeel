@@ -438,7 +438,6 @@ function ChatPage() {
                   username={username}
                   onSuggestion={sendSuggestion}
                   onMessagesChange={(m) => persistMessages(t.id, m)}
-                  isActive={t.id === active.id}
                 />
               </div>
             ))}
