@@ -689,6 +689,97 @@ function SingleChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Voice input (microphone → transcription)
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [micErr, setMicErr] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+
+  const stopMicStream = () => {
+    audioStreamRef.current?.getTracks().forEach((t) => t.stop());
+    audioStreamRef.current = null;
+  };
+
+  const startRecording = async () => {
+    setMicErr(null);
+    if (recording || transcribing) return;
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setMicErr("Microphone not supported in this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      // Pick a mime the browser supports (Safari → mp4, others → webm)
+      const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
+      let mime = "";
+      for (const c of candidates) {
+        if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c)) { mime = c; break; }
+      }
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data); };
+      rec.onstop = async () => {
+        stopMicStream();
+        const type = rec.mimeType || mime || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type });
+        audioChunksRef.current = [];
+        if (blob.size < 1024) {
+          setMicErr("Recording too short — please try again.");
+          setTranscribing(false);
+          return;
+        }
+        setTranscribing(true);
+        try {
+          const fd = new FormData();
+          const ext = type.includes("mp4") ? "mp4" : type.includes("mpeg") ? "mp3" : "webm";
+          fd.append("file", blob, `recording.${ext}`);
+          const res = await fetch("/api/transcribe", { method: "POST", body: fd });
+          if (!res.ok) {
+            const errText = await res.text().catch(() => "");
+            throw new Error(errText || `Transcription failed (${res.status})`);
+          }
+          const data = (await res.json()) as { text?: string };
+          const text = (data.text ?? "").trim();
+          if (text) {
+            setInput((prev) => (prev ? prev.replace(/\s+$/, "") + " " + text : text));
+            requestAnimationFrame(() => textareaRef.current?.focus());
+          } else {
+            setMicErr("No speech detected. Please try again.");
+          }
+        } catch (err) {
+          setMicErr(err instanceof Error ? err.message : String(err));
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = rec;
+      rec.start();
+      setRecording(true);
+    } catch (err) {
+      stopMicStream();
+      setMicErr(err instanceof Error ? err.message : "Microphone permission denied.");
+    }
+  };
+
+  const stopRecording = () => {
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state !== "inactive") {
+      try { rec.stop(); } catch { /* ignore */ }
+    }
+    setRecording(false);
+  };
+
+  const toggleRecording = () => {
+    if (recording) stopRecording();
+    else void startRecording();
+  };
+
+  useEffect(() => () => { stopMicStream(); }, []);
+
+
   const onMsgRef = useRef(onMessagesChange);
   const lastSyncedMessagesRef = useRef("");
   const syncTimerRef = useRef<number | null>(null);
@@ -1046,10 +1137,18 @@ function SingleChat({
             </label>
             <button
               type="button"
-              className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-background/60 transition shrink-0"
-              title="Voice (coming soon)"
-              aria-label="Voice"
-              disabled
+              onClick={toggleRecording}
+              disabled={transcribing}
+              className={`hidden sm:flex w-10 h-10 items-center justify-center rounded-full transition shrink-0 ${
+                recording
+                  ? "bg-red-500/20 text-red-400 animate-pulse"
+                  : transcribing
+                  ? "text-mint"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+              }`}
+              title={recording ? "Stop recording" : transcribing ? "Transcribing…" : micErr ?? "Voice input"}
+              aria-label="Voice input"
+              aria-pressed={recording}
             >
               <Mic className="w-5 h-5" />
             </button>
