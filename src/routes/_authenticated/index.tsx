@@ -980,11 +980,14 @@ function SingleChat({
 
   const stopRecording = () => {
     recordingRef.current = false;
+    const wasLive = liveModeRef.current;
     liveModeRef.current = false;
     setRecording(false);
     setLiveMode(false);
-    const rec = mediaRecorderRef.current;
-    if (rec && rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
+    // Flush anything captured so far (no auto-submit on manual stop).
+    flushSegment(false);
+    void wasLive;
+    stopMicStream();
   };
 
   const requestMicWithPrompt = async (live: boolean) => {
