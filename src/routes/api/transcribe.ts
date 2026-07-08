@@ -14,6 +14,7 @@ export const Route = createFileRoute("/api/transcribe")({
 
         const form = await request.formData();
         const file = form.get("file");
+        const wantStream = String(form.get("stream") ?? "") === "true";
         if (!(file instanceof Blob) || file.size === 0) {
           return new Response("Empty or missing audio file", { status: 400 });
         }
@@ -21,7 +22,6 @@ export const Route = createFileRoute("/api/transcribe")({
           return new Response("Recording too short — please try again.", { status: 400 });
         }
 
-        // Determine extension from mime
         const mime = (file.type || "").split(";")[0].toLowerCase();
         const extMap: Record<string, string> = {
           "audio/webm": "webm",
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/transcribe")({
         const upstream = new FormData();
         upstream.append("model", "openai/gpt-4o-transcribe");
         upstream.append("file", file, `recording.${ext}`);
-        // Do NOT set language — let it auto-detect (Urdu / Roman Urdu / English).
+        if (wantStream) upstream.append("stream", "true");
 
         try {
           const res = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
@@ -45,10 +45,23 @@ export const Route = createFileRoute("/api/transcribe")({
             headers: { Authorization: `Bearer ${key}` },
             body: upstream,
           });
-          const text = await res.text();
+
           if (!res.ok) {
+            const text = await res.text().catch(() => "");
             return new Response(text || `Transcription failed: ${res.status}`, { status: res.status });
           }
+
+          if (wantStream && res.body) {
+            return new Response(res.body, {
+              headers: {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
+              },
+            });
+          }
+
+          const text = await res.text();
           try {
             const json = JSON.parse(text) as { text?: string };
             return new Response(JSON.stringify({ text: json.text ?? "" }), {
