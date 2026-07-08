@@ -25,7 +25,7 @@ import {
   ImageIcon,
   X,
   Globe,
-  Search,
+  
   Bell,
   Edit3,
   FileText as FileTextIcon,
