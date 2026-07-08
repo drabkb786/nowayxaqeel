@@ -255,10 +255,15 @@ export const Route = createFileRoute("/api/chat")({
         try {
           const { createLovableGateway } = await import("@/lib/ai-gateway.server");
           const gateway = createLovableGateway(key);
+          const isFastCapable = /^openai\/gpt-5(\.\d)?(-mini)?$/.test(model) || /^openai\/gpt-5\.4(-mini)?$/.test(model);
           const result = streamText({
             model: gateway(model),
             system: sys,
             messages: await convertToModelMessages(body.messages),
+            ...(body.live ? { maxOutputTokens: 400 } : {}),
+            ...(body.live && isFastCapable
+              ? { providerOptions: { lovable: { service_tier: "priority" } } }
+              : {}),
           });
           return result.toUIMessageStreamResponse({ originalMessages: body.messages });
         } catch (err) {
