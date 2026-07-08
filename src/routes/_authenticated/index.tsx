@@ -699,6 +699,7 @@ function SingleChat({
   const recognitionRef = useRef<{ start: () => void; stop: () => void; abort: () => void; onresult: ((e: unknown) => void) | null; onerror: ((e: unknown) => void) | null; onend: (() => void) | null; onstart: (() => void) | null; continuous: boolean; interimResults: boolean; lang: string; } | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalTextRef = useRef<string>("");
+  const finalSegmentsRef = useRef<string[]>([]);
   const baseInputRef = useRef<string>("");
   const shouldRestartRef = useRef(false);
   const recordingRef = useRef(false);
@@ -1036,6 +1037,7 @@ function SingleChat({
       // Seed with whatever is already in the box so we append rather than replace.
       baseInputRef.current = input;
       finalTextRef.current = "";
+      finalSegmentsRef.current = [];
       autoSubmittingRef.current = false;
 
       rec.onstart = () => {
@@ -1049,14 +1051,13 @@ function SingleChat({
       rec.onresult = (evt: unknown) => {
         const e = evt as { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> };
         let interim = "";
-        let newFinal = "";
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const r = e.results[i];
           const txt = r[0]?.transcript ?? "";
-          if (r.isFinal) newFinal += txt;
+          if (r.isFinal) finalSegmentsRef.current[i] = txt;
           else interim += txt;
         }
-        if (newFinal) finalTextRef.current = (finalTextRef.current + " " + newFinal).replace(/\s+/g, " ").trim();
+        finalTextRef.current = finalSegmentsRef.current.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
         const base = baseInputRef.current;
         const composed = [base, finalTextRef.current, interim].filter((s) => s && s.trim().length > 0).join(" ").replace(/\s+/g, " ");
         setInput(composed);
@@ -1372,6 +1373,7 @@ function SingleChat({
         setInput("");
         setAttached(null);
         finalTextRef.current = "";
+        finalSegmentsRef.current = [];
         baseInputRef.current = "";
         return;
       }
@@ -1412,6 +1414,7 @@ function SingleChat({
     setInput("");
     setAttached(null);
     finalTextRef.current = "";
+    finalSegmentsRef.current = [];
     baseInputRef.current = "";
   };
 
@@ -1439,6 +1442,7 @@ function SingleChat({
       if (lastSubmitRef.current.text === normalized && now - lastSubmitRef.current.at < 3000) {
         setInput("");
         finalTextRef.current = "";
+        finalSegmentsRef.current = [];
         baseInputRef.current = "";
         return;
       }
