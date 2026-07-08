@@ -688,9 +688,6 @@ function SingleChat({
   const recordingRef = useRef(false);
   const liveModeRef = useRef(false);
   const submitRef = useRef<(() => void) | null>(null);
-  const pendingSubmitRef = useRef(false);
-  const SEGMENT_MS = 4000;
-  const SILENCE_MS = 1500;
 
   const isInsideFrame = () => {
     try {
