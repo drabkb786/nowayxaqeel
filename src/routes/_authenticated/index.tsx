@@ -671,6 +671,7 @@ function SingleChat({
   const [liveMode, setLiveMode] = useState(false);
   const [micErr, setMicErr] = useState<string | null>(null);
   const [micNeedsNewTab, setMicNeedsNewTab] = useState(false);
+  const [micPrompt, setMicPrompt] = useState<null | { live: boolean; embed: boolean; denied: boolean }>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -942,15 +943,24 @@ function SingleChat({
     if (rec && rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
   };
 
+  const requestMicWithPrompt = async (live: boolean) => {
+    if (recording) { stopRecording(); return; }
+    setMicErr(null);
+    const embed = isMicBlockedByEmbed();
+    const state = await getMicPermissionState();
+    if (state === "granted" && !embed) { void startRecording(live); return; }
+    setMicPrompt({ live, embed, denied: state === "denied" });
+  };
+
   const toggleRecording = () => {
-    if (recording) stopRecording();
-    else void startRecording(false);
+    if (recording && !liveMode) { stopRecording(); return; }
+    void requestMicWithPrompt(false);
   };
 
   const toggleLive = () => {
-    if (recording && liveMode) stopRecording();
-    else if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); if (audioStreamRef.current) startVAD(audioStreamRef.current); }
-    else void startRecording(true);
+    if (recording && liveMode) { stopRecording(); return; }
+    if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); if (audioStreamRef.current) startVAD(audioStreamRef.current); return; }
+    void requestMicWithPrompt(true);
   };
 
   useEffect(() => {
@@ -1422,6 +1432,78 @@ function SingleChat({
           </div>
         </div>
       </form>
+      {micPrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-24"
+          onClick={() => setMicPrompt(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <div className="text-sm font-semibold text-foreground">
+                {typeof window !== "undefined" ? window.location.hostname : "This site"} wants to
+              </div>
+              <button
+                type="button"
+                onClick={() => setMicPrompt(null)}
+                className="text-muted-foreground hover:text-foreground text-lg leading-none"
+                aria-label="Close"
+              >×</button>
+            </div>
+            <div className="px-5 pb-3 flex items-center gap-2 text-sm text-foreground">
+              <Mic className="w-4 h-4" />
+              <span>Use available microphone</span>
+            </div>
+            {micPrompt.denied && (
+              <div className="mx-5 mb-3 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-[11px] text-destructive">
+                Browser me is site ke liye mic block hai. URL bar ke lock icon → Site settings → Microphone → Allow karke reload karein.
+              </div>
+            )}
+            {micPrompt.embed && (
+              <div className="mx-5 mb-3 rounded-lg bg-mint/10 border border-mint/20 px-3 py-2 text-[11px] text-foreground">
+                Yeh preview frame mic ko block karta hai. "Allow" karne par app new tab me khul jayegi jahan mic kaam karega.
+              </div>
+            )}
+            <div className="px-5 pb-4 pt-1 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const live = micPrompt.live;
+                  const embed = micPrompt.embed;
+                  setMicPrompt(null);
+                  if (embed) { openMicInNewTab(live); return; }
+                  void startRecording(live);
+                }}
+                className="w-full rounded-full bg-[#1e5cff] hover:bg-[#1a52e0] text-white font-medium py-2.5 text-sm transition"
+              >
+                {micPrompt.embed ? "Open in new tab" : "Allow while visiting the site"}
+              </button>
+              {!micPrompt.embed && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const live = micPrompt.live;
+                    setMicPrompt(null);
+                    void startRecording(live);
+                  }}
+                  className="w-full rounded-full bg-[#1e5cff]/80 hover:bg-[#1e5cff] text-white font-medium py-2.5 text-sm transition"
+                >
+                  Allow this time
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMicPrompt(null)}
+                className="w-full rounded-full bg-muted hover:bg-muted/80 text-foreground font-medium py-2.5 text-sm transition"
+              >
+                Never allow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
