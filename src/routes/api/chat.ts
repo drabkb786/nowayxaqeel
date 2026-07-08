@@ -5,6 +5,7 @@ type Body = {
   messages?: UIMessage[];
   model?: string;
   system?: string;
+  live?: boolean;
 };
 
 const ALLOWED = new Set([
