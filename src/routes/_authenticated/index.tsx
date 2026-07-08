@@ -608,7 +608,17 @@ function SingleChat({
       api: "/api/chat",
       prepareSendMessagesRequest: ({ api, body, messages }) => {
         const live = liveModeRef.current;
-        const useResearch = research && !live;
+        // Only trigger heavy Deep Research when the user explicitly asks for it.
+        const lastUserText = (() => {
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const m = messages[i] as unknown as { role: string; parts?: Array<{ type: string; text?: string }> };
+            if (m.role !== "user") continue;
+            return (m.parts ?? []).filter((p) => p.type === "text").map((p) => p.text ?? "").join(" ").toLowerCase();
+          }
+          return "";
+        })();
+        const RESEARCH_TRIGGERS = /(research karo|deep research|search karo|web search|detail(ed)? research|puri research|internet se|latest news|source(s)? do|citations?)/i;
+        const wantsResearch = research && !live && RESEARCH_TRIGGERS.test(lastUserText);
         const depthDirective = live
           ? "\n\nRESPONSE MODE: VOICE ASSISTANT (like a friend on a phone call).\n" +
             "- Talk casually and naturally, 1-2 short spoken sentences. Plain text only — NO markdown, NO lists, NO code, NO headings, NO links.\n" +
@@ -621,10 +631,11 @@ function SingleChat({
             : "\n\nRESPONSE DEPTH: STANDARD. Give a clear, detailed but focused answer — well structured, not overly long.";
         const activeModel = live ? "openai/gpt-5.5" : model;
         return {
-          api: useResearch ? "/api/research" : (api ?? "/api/chat"),
+          api: wantsResearch ? "/api/research" : (api ?? "/api/chat"),
           body: { ...(body ?? {}), messages, model: activeModel, system: (system ?? "") + depthDirective, live },
         };
       },
+
     }),
     [model, system, depth, research],
   );
