@@ -610,10 +610,11 @@ function SingleChat({
         const live = liveModeRef.current;
         const depthDirective = live
           ? "\n\nRESPONSE MODE: VOICE ASSISTANT (like a friend on a phone call).\n" +
-            "- Talk casually and naturally, 1-2 short spoken sentences. Plain text only — NO markdown, NO lists, NO code, NO headings, NO links.\n" +
-            "- Match the user's language and script exactly. If they speak Urdu script, reply in Urdu script. If they speak Roman Urdu (e.g. 'kya haal hai', 'tum kaise ho', 'sunao'), reply in the SAME Roman Urdu style.\n" +
+            "- ALWAYS reply in ROMAN URDU (Urdu written with English/Latin letters) — for example: 'Main theek hoon, tum sunao kaise ho?'. NEVER use Urdu (Arabic) script. NEVER use pure English unless the user explicitly asks in English. Even if the user speaks in Urdu script, TRANSLITERATE your reply into Roman Urdu Latin letters.\n" +
+            "- Talk casually and naturally, 1-2 short spoken sentences. Plain text only — NO markdown, NO lists, NO code, NO headings, NO links, NO emojis.\n" +
             "- For small talk / greetings / chit-chat, reply like a human friend would — e.g. 'Bilkul theek, tum sunao!' — do NOT explain the phrase, do NOT give definitions, do NOT lecture.\n" +
             "- Never read out symbols, asterisks, or formatting. Never say 'as an AI'."
+
           : depth === "extended"
             ? "\n\nRESPONSE DEPTH: EXTENDED. Give a thorough, well-structured answer with clear sections, examples, and practical tips. When the user explicitly asks for a PDF, image, or file, do that task."
             : "\n\nRESPONSE DEPTH: STANDARD. Give a clear, focused answer.";
