@@ -261,13 +261,24 @@ async function pickFonts(pdf: PDFDocument, family: "Helvetica" | "Times" | "Cour
 type Fonts = Awaited<ReturnType<typeof pickFonts>>;
 
 // Strip characters (incl. emoji) that StandardFonts can't render.
-function clean(s: string): string {
-  return (s ?? "")
+function clean(s: unknown): string {
+  const str =
+    typeof s === "string"
+      ? s
+      : s == null
+        ? ""
+        : Array.isArray(s)
+          ? s.map((x) => clean(x)).join(" ")
+          : typeof s === "object"
+            ? JSON.stringify(s)
+            : String(s);
+  return str
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2013\u2014]/g, "-")
     .replace(/\u2026/g, "...")
     .replace(/\u00A0/g, " ")
+    .replace(/[\u2022\u25CF\u25E6\u2043\u2219]/g, "-")
     // eslint-disable-next-line no-control-regex
     .replace(/[^\x00-\xFF]/g, "");
 }
@@ -479,7 +490,7 @@ function drawKeyTakeaways(ctx: Ctx, kb: Extract<Block, { type: "keytakeaways" }>
   ctx.page.drawText("KEY TAKEAWAYS", { x: MARGIN + padX, y: ty - 10, size: 9.5, font: ctx.fonts.bold, color: ctx.pal.primary });
   ty -= 20;
   for (const w of wrapped) {
-    ctx.page.drawText("●", { x: MARGIN + padX, y: ty - BODY_SIZE + 1, size: BODY_SIZE, font: ctx.fonts.bold, color: ctx.pal.primary });
+    ctx.page.drawText("\u2022", { x: MARGIN + padX, y: ty - BODY_SIZE + 1, size: BODY_SIZE, font: ctx.fonts.bold, color: ctx.pal.primary });
     for (let i = 0; i < w.length; i++) {
       ctx.page.drawText(w[i], { x: MARGIN + padX + 14, y: ty - BODY_SIZE, size: BODY_SIZE, font: ctx.fonts.regular, color: ctx.pal.ink });
       ty -= BODY_LEADING;
