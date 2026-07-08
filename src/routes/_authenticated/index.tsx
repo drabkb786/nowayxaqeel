@@ -1006,7 +1006,7 @@ function SingleChat({
 
   const toggleLive = () => {
     if (recording && liveMode) { stopRecording(); return; }
-    if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); if (audioStreamRef.current) startVAD(audioStreamRef.current); return; }
+    if (recording && !liveMode) { liveModeRef.current = true; setLiveMode(true); return; }
     void requestMicWithPrompt(true);
   };
 
