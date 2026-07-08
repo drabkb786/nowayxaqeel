@@ -1108,6 +1108,17 @@ function SingleChat({
 
   const canSend = !!input.trim() || !!attached;
 
+  // Auto-submit hook for Live Q&A mode
+  useEffect(() => {
+    submitRef.current = () => {
+      if (busy) return;
+      if (!input.trim() && !attached) return;
+      const fakeEvt = { preventDefault: () => {} } as React.FormEvent;
+      submit(fakeEvt);
+    };
+  });
+
+
   return (
     <>
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
