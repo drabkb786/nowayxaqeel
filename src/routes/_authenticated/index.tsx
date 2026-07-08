@@ -25,6 +25,17 @@ import {
   ImageIcon,
   X,
   Globe,
+  Search,
+  Bell,
+  Edit3,
+  FileText as FileTextIcon,
+  FileSpreadsheet,
+  FileCode,
+  Presentation,
+  Zap,
+  Languages,
+  Lightbulb,
+  BarChart3,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
