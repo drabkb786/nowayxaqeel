@@ -86,11 +86,11 @@ export const Route = createFileRoute("/api/research")({
           return new Response("messages required", { status: 400 });
         }
 
-        const apiKey = process.env.PERPLEXITY_API_KEY;
+        const apiKey = process.env.LOVABLE_API_KEY;
         if (!apiKey) {
           return new Response(
-            "Deep Research requires a Perplexity API key. Please add PERPLEXITY_API_KEY and try again.",
-            { status: 400 },
+            "Deep Research is not configured on this project.",
+            { status: 500 },
           );
         }
 
@@ -108,62 +108,64 @@ export const Route = createFileRoute("/api/research")({
           ...history,
         ];
 
-        // Ensure the last message is the user's current query
         if (messages[messages.length - 1]?.role !== "user") {
           messages.push({ role: "user", content: query });
         }
 
         try {
-          const pplxRes = await fetch("https://api.perplexity.ai/chat/completions", {
+          const geminiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${apiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "sonar-deep-research",
+              model: "google/gemini-2.5-pro",
               messages,
               temperature: 0.2,
               max_tokens: 8000,
-              return_citations: true,
-              search_context_size: "high",
+              // OpenRouter web-search plugin — grounds Gemini with live web results and annotations.
+              plugins: [{ id: "web", max_results: 30 }],
             }),
           });
 
-          if (!pplxRes.ok) {
-            const errText = await pplxRes.text();
-            console.error(`Perplexity failed [${pplxRes.status}]: ${errText}`);
-            return uiFallback(FALLBACK_MESSAGE);
+          if (!geminiRes.ok) {
+            const errText = await geminiRes.text();
+            console.error(`Gemini deep-research failed [${geminiRes.status}]: ${errText}`);
+            return uiFallback(`${FALLBACK_MESSAGE} (${geminiRes.status})`);
           }
 
-          const json = (await pplxRes.json()) as {
-            choices?: Array<{ message?: { content?: string } }>;
-            citations?: string[];
-            search_results?: Array<{ title?: string; url?: string }>;
+          const json = (await geminiRes.json()) as {
+            choices?: Array<{
+              message?: {
+                content?: string;
+                annotations?: Array<{
+                  type?: string;
+                  url_citation?: { url?: string; title?: string };
+                }>;
+              };
+            }>;
           };
 
           let content = json.choices?.[0]?.message?.content?.trim() ?? "";
           if (!content) return uiFallback(FALLBACK_MESSAGE);
 
-          const citations = json.citations ?? [];
-          const results = json.search_results ?? [];
+          const annotations = json.choices?.[0]?.message?.annotations ?? [];
+          const cites = annotations
+            .filter((a) => a?.type === "url_citation" && a.url_citation?.url)
+            .map((a) => ({ url: a.url_citation!.url!, title: a.url_citation!.title || "" }));
 
-          // If model didn't include a References section, append one from citations
-          if (!/##\s*References/i.test(content) && (citations.length || results.length)) {
-            const refs = citations.length
-              ? citations.map((url, i) => {
-                  const match = results[i];
-                  const title = match?.title || safeHost(url);
-                  return `[${i + 1}] ${title} — ${url}`;
-                })
-              : results.map((r, i) => `[${i + 1}] ${r.title || safeHost(r.url || "")} — ${r.url || ""}`);
+          if (!/##\s*References/i.test(content) && cites.length) {
+            const refs = cites.map(
+              (c, i) => `[${i + 1}] ${c.title || safeHost(c.url)} — ${c.url}`,
+            );
             content += `\n\n## References\n${refs.join("\n")}`;
           }
 
           return uiStreamResponse(content);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error("Perplexity request error:", msg);
+          console.error("Gemini deep-research request error:", msg);
           return uiFallback(FALLBACK_MESSAGE);
         }
       },
