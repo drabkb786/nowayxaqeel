@@ -260,18 +260,26 @@ async function pickFonts(pdf: PDFDocument, family: "Helvetica" | "Times" | "Cour
 }
 type Fonts = Awaited<ReturnType<typeof pickFonts>>;
 
+function extractText(s: unknown): string {
+  if (s == null) return "";
+  if (typeof s === "string") return s;
+  if (typeof s === "number" || typeof s === "boolean") return String(s);
+  if (Array.isArray(s)) return s.map(extractText).join(" ");
+  if (typeof s === "object") {
+    const o = s as Record<string, unknown>;
+    if (Array.isArray(o.runs)) return o.runs.map(extractText).join("");
+    if (Array.isArray(o.items)) return o.items.map(extractText).join(" ");
+    if (typeof o.text === "string") return o.text;
+    if (typeof o.content === "string") return o.content;
+    try { return JSON.stringify(s); } catch { return ""; }
+  }
+  return String(s);
+}
+
 // Strip characters (incl. emoji) that StandardFonts can't render.
 function clean(s: unknown): string {
-  const str =
-    typeof s === "string"
-      ? s
-      : s == null
-        ? ""
-        : Array.isArray(s)
-          ? s.map((x) => clean(x)).join(" ")
-          : typeof s === "object"
-            ? JSON.stringify(s)
-            : String(s);
+  const str = extractText(s);
+
   try {
     return str
       .replace(/[\u2018\u2019]/g, "'")
