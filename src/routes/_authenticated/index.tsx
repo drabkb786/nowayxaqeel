@@ -25,6 +25,17 @@ import {
   ImageIcon,
   X,
   Globe,
+  Search,
+  Bell,
+  Edit3,
+  FileText as FileTextIcon,
+  FileSpreadsheet,
+  FileCode,
+  Presentation,
+  Zap,
+  Languages,
+  Lightbulb,
+  BarChart3,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -256,59 +267,93 @@ function ChatPage() {
 
   const sidebarWidth = sidebarCollapsed ? "lg:w-16" : "lg:w-72";
 
+  const QUICK_ACTIONS = [
+    { icon: ImageIcon, title: "Create Image", sub: "Generate with AI", tint: "text-mint", prompt: "Ek modern minimalist mountain landscape ki image banao." },
+    { icon: Code2, title: "Code Assistant", sub: "Write & debug code", tint: "text-iris", prompt: "React ke useEffect hook ko simple examples ke saath samjhao." },
+    { icon: FileTextIcon, title: "Summarize Text", sub: "Get key points", tint: "text-mint", prompt: "Summarize the following text into 5 key bullet points:" },
+    { icon: Languages, title: "Translate", sub: "Multi-language", tint: "text-violet", prompt: "Translate this to English:" },
+    { icon: Lightbulb, title: "Brainstorm Ideas", sub: "Get creative", tint: "text-mint", prompt: "Give me 10 creative startup ideas in the education space." },
+    { icon: BarChart3, title: "Data Analysis", sub: "Analyze & visualize", tint: "text-iris", prompt: "Help me analyze this dataset and suggest visualizations:" },
+  ];
+
+  const RECENT_FILES = [
+    { icon: FileTextIcon, name: "Project_Proposal.docx", meta: "2.4 MB · 2h ago", color: "text-blue-400" },
+    { icon: FileSpreadsheet, name: "Data_Analysis.xlsx", meta: "1.8 MB · 5h ago", color: "text-emerald-400" },
+    { icon: Presentation, name: "Presentation.pptx", meta: "5.2 MB · 1d ago", color: "text-orange-400" },
+    { icon: FileCode, name: "Code_Snippet.py", meta: "2.1 KB · 2d ago", color: "text-yellow-400" },
+  ];
+
   return (
     <div className="h-screen bg-background text-foreground flex overflow-hidden">
-      {/* Sidebar — always dark themed (ChatGPT style) */}
+      {/* Sidebar */}
       <aside
         className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-72 ${sidebarWidth} bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-all duration-300 ease-out`}
       >
         <div className="p-3 flex items-center gap-2">
           <button
             onClick={() => setSidebarCollapsed((v) => !v)}
-            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg hover:bg-sidebar-accent/40 text-sidebar-foreground/70 shrink-0"
+            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg hover:bg-sidebar-accent/60 text-sidebar-foreground/70 shrink-0"
             aria-label="Collapse sidebar"
             title="Toggle sidebar"
           >
             <Menu className="w-4 h-4" />
           </button>
           <div className={`flex items-center gap-2 min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-mint via-primary to-mint-glow flex items-center justify-center font-black text-black text-[10px] tracking-tight">NxA</div>
+            <div className="w-9 h-9 shrink-0 rounded-xl bg-gradient-to-br from-mint via-mint-glow to-mint flex items-center justify-center font-black text-black text-[10px] tracking-tight shadow-[0_0_20px_-4px_var(--mint)]">NxA</div>
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">NOWAYxAQEEL GPT</div>
-              <div className="text-[10px] text-sidebar-foreground/40">GPT · Gemini</div>
+              <div className="text-[10px] text-sidebar-foreground/50">Powered by Gemini</div>
             </div>
           </div>
           <button
+            onClick={createThread}
+            title="New chat"
+            className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/60 text-sidebar-foreground/70 shrink-0 ${sidebarCollapsed ? "lg:hidden" : ""}`}
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/40"
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/60"
             aria-label="Close sidebar"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-3">
+        <div className={`px-3 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           <button
             onClick={createThread}
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-sidebar-accent/50 hover:bg-sidebar-accent border border-sidebar-border transition ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+            className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-2xl text-sm font-semibold text-mint bg-mint/10 border border-mint/30 hover:bg-mint/15 hover:border-mint/50 transition shadow-[0_0_30px_-10px_var(--mint)]"
           >
-            <Plus className="w-4 h-4 shrink-0" />
-            <span className={sidebarCollapsed ? "lg:hidden" : ""}>New chat</span>
+            <Plus className="w-4 h-4" />
+            New Chat
           </button>
         </div>
 
-        <div className={`px-3 pt-4 pb-1 text-[10px] tracking-widest uppercase text-sidebar-foreground/30 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+        <div className={`px-3 mt-3 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-foreground/40" />
+            <input
+              placeholder="Search chats..."
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-sidebar-accent/50 border border-sidebar-border outline-none focus:border-mint/40 text-sidebar-foreground placeholder:text-sidebar-foreground/40"
+            />
+          </div>
+        </div>
+
+        <div className={`px-4 pt-4 pb-1 text-[10px] tracking-widest uppercase text-sidebar-foreground/40 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           Recent
         </div>
 
         <div className={`flex-1 overflow-y-auto px-2 space-y-0.5 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
           {threads.slice().sort((a, b) => b.updatedAt - a.updatedAt).map((t) => (
-            <div key={t.id} className={`group flex items-center gap-1 rounded-lg transition ${t.id === activeId ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/40"}`}>
+            <div key={t.id} className={`group flex items-center gap-1 rounded-xl transition ${t.id === activeId ? "bg-mint/10 border border-mint/25" : "hover:bg-sidebar-accent/50 border border-transparent"}`}>
               <button
                 onClick={() => { setActiveId(t.id); setSidebarOpen(false); }}
-                className="flex-1 text-left px-3 py-2 text-sm truncate"
+                className="flex-1 min-w-0 flex items-center gap-2.5 text-left px-3 py-2.5"
               >
-                {t.title || "New chat"}
+                <Sparkles className={`w-3.5 h-3.5 shrink-0 ${t.id === activeId ? "text-mint" : "text-sidebar-foreground/40"}`} />
+                <span className="text-sm truncate">{t.title || "New chat"}</span>
               </button>
               <button
                 onClick={() => deleteThread(t.id)}
@@ -321,24 +366,41 @@ function ChatPage() {
           ))}
         </div>
 
-        <div className="p-3 border-t border-sidebar-border space-y-2">
-          <div className={`flex items-center gap-2 ${sidebarCollapsed ? "lg:justify-center" : ""}`}>
+        <div className="p-3 space-y-3">
+          <div className={`flex items-center gap-2 p-2 rounded-2xl bg-sidebar-accent/40 border border-sidebar-border ${sidebarCollapsed ? "lg:justify-center lg:p-0 lg:bg-transparent lg:border-0" : ""}`}>
             <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-mint to-mint-glow flex items-center justify-center text-black text-sm font-bold">
               {username.slice(0, 1).toUpperCase()}
             </div>
             <div className={`min-w-0 flex-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}>
               <div className="text-sm text-sidebar-foreground truncate">@{username}</div>
-              <div className="text-[10px] text-sidebar-foreground/40">Signed in</div>
+              <div className="text-[10px] text-mint">Pro Plan</div>
             </div>
             <button
               onClick={signOut}
               title="Sign out"
-              className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/40 text-sidebar-foreground/60 hover:text-sidebar-foreground ${sidebarCollapsed ? "lg:hidden" : ""}`}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sidebar-accent/70 text-sidebar-foreground/60 hover:text-sidebar-foreground ${sidebarCollapsed ? "lg:hidden" : ""}`}
               aria-label="Sign out"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
+
+          <div className={`relative overflow-hidden rounded-2xl p-4 border border-mint/25 bg-gradient-to-br from-mint/10 via-mint/5 to-transparent ${sidebarCollapsed ? "lg:hidden" : ""}`}>
+            <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-mint/20 blur-3xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2 text-sm font-semibold text-mint">
+                <Zap className="w-4 h-4" />
+                Upgrade to Pro
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-sidebar-foreground/60">
+                Unlock advanced features and faster responses.
+              </p>
+              <button className="mt-3 w-full py-2 rounded-xl text-xs font-semibold text-black bg-gradient-to-r from-mint to-mint-glow hover:brightness-110 transition">
+                ⚡ Upgrade Now
+              </button>
+            </div>
+          </div>
+
           <Link
             to="/id"
             className={`block text-[11px] text-sidebar-foreground/40 hover:text-sidebar-foreground/70 px-1 ${sidebarCollapsed ? "lg:hidden" : ""}`}
@@ -348,102 +410,175 @@ function ChatPage() {
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 flex flex-col min-w-0 bg-background">
-        <header className="flex items-center gap-2 px-3 sm:px-5 h-14 border-b border-border">
-          <button
-            onClick={() => setSidebarOpen((v) => !v)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted"
-            aria-label="Toggle sidebar"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <ModelPicker value={modelA} onChange={setModelA} />
-            {compare && (
-              <>
-                <span className="text-muted-foreground text-xs">vs</span>
-                <ModelPicker value={modelB} onChange={setModelB} />
-              </>
-            )}
-          </div>
-          <label className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={compare}
-              onChange={(e) => setCompare(e.target.checked)}
-              className="accent-mint"
-            />
-            Compare
-          </label>
-          <button
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
-            title="Toggle theme"
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => setShowSettings((v) => !v)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
-            title="System prompt"
-            aria-label="System prompt"
-          >
-            <Settings2 className="w-4 h-4" />
-          </button>
-        </header>
+      {/* Main + right rail */}
+      <div className="flex-1 flex min-w-0">
+        <main className="flex-1 flex flex-col min-w-0">
+          <header className="flex items-center gap-2 px-3 sm:px-5 h-16 shrink-0">
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted"
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-2 flex-1 min-w-0 justify-center">
+              <ModelPicker value={modelA} onChange={setModelA} />
+              {compare && (
+                <>
+                  <span className="text-muted-foreground text-xs">vs</span>
+                  <ModelPicker value={modelB} onChange={setModelB} />
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition"
+              title="Toggle theme"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => setCompare((v) => !v)}
+              className={`hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition ${
+                compare ? "bg-mint/15 border-mint/40 text-mint" : "bg-muted/60 border-border text-foreground hover:border-mint/30"
+              }`}
+              title="Compare mode"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Compare
+            </button>
+            <button
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition"
+              title="Notifications"
+              aria-label="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowSettings((v) => !v)}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition"
+              title="System prompt"
+              aria-label="System prompt"
+            >
+              <Settings2 className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-mint to-mint-glow flex items-center justify-center text-black text-sm font-bold">
+              {username.slice(0, 1).toUpperCase()}
+            </div>
+          </header>
 
-        {showSettings && (
-          <div className="px-4 sm:px-6 py-3 border-b border-border bg-muted/30">
-            <label className="text-[10px] tracking-widest uppercase text-muted-foreground">System prompt</label>
-            <textarea
-              value={system}
-              onChange={(e) => setSystem(e.target.value)}
-              rows={3}
-              placeholder="You are a helpful assistant..."
-              className="mt-1 w-full px-3 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:border-ring"
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Applied to every new message in this chat. Empty = model default.
-            </p>
-          </div>
-        )}
-
-        {compare ? (
-          <CompareView
-            key={active.id}
-            threadId={active.id}
-            initialMessages={active.messages}
-            modelA={modelA}
-            modelB={modelB}
-            system={system}
-             onMessagesChange={handleActiveMessagesChange}
-          />
-        ) : (
-          // Keep every thread mounted so an in-flight stream keeps running
-          // (and its reply is saved) even if the user switches threads.
-          <div className="flex-1 flex flex-col min-h-0 relative">
-            {threads.map((t) => (
-              <div
-                key={t.id}
-                className={`absolute inset-0 flex flex-col min-h-0 ${t.id === active.id ? "" : "hidden"}`}
-                aria-hidden={t.id !== active.id}
-              >
-                <SingleChat
-                  threadId={t.id}
-                  initialMessages={t.messages}
-                  model={modelA}
-                  system={system}
-                  username={username}
-                  onSuggestion={sendSuggestion}
-                  onMessagesChange={(m) => persistMessages(t.id, m)}
+          {showSettings && (
+            <div className="px-4 sm:px-6 pb-3">
+              <div className="emerald-panel px-4 py-3">
+                <label className="text-[10px] tracking-widest uppercase text-muted-foreground">System prompt</label>
+                <textarea
+                  value={system}
+                  onChange={(e) => setSystem(e.target.value)}
+                  rows={3}
+                  placeholder="You are a helpful assistant..."
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-background/60 border border-border text-sm outline-none focus:border-mint/40"
                 />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Applied to every new message in this chat. Empty = model default.
+                </p>
               </div>
-            ))}
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 px-3 sm:px-5 pb-5">
+            <div className="emerald-panel h-full flex flex-col overflow-hidden">
+              {compare ? (
+                <CompareView
+                  key={active.id}
+                  threadId={active.id}
+                  initialMessages={active.messages}
+                  modelA={modelA}
+                  modelB={modelB}
+                  system={system}
+                  onMessagesChange={handleActiveMessagesChange}
+                />
+              ) : (
+                <div className="flex-1 flex flex-col min-h-0 relative">
+                  {threads.map((t) => (
+                    <div
+                      key={t.id}
+                      className={`absolute inset-0 flex flex-col min-h-0 ${t.id === active.id ? "" : "hidden"}`}
+                      aria-hidden={t.id !== active.id}
+                    >
+                      <SingleChat
+                        threadId={t.id}
+                        initialMessages={t.messages}
+                        model={modelA}
+                        system={system}
+                        username={username}
+                        onSuggestion={sendSuggestion}
+                        onMessagesChange={(m) => persistMessages(t.id, m)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </main>
+        </main>
+
+        {/* Right rail — Quick Actions + Recent Files */}
+        <aside className="hidden xl:flex w-80 shrink-0 flex-col gap-4 pr-5 py-5 overflow-y-auto">
+          <div className="emerald-panel p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-mint" />
+                <h3 className="text-sm font-semibold">Quick Actions</h3>
+              </div>
+              <div className="w-6 h-6 rounded-full bg-mint/15 border border-mint/30 flex items-center justify-center text-mint">
+                <ArrowUp className="w-3 h-3" />
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              {QUICK_ACTIONS.map((q) => {
+                const Icon = q.icon;
+                return (
+                  <button
+                    key={q.title}
+                    onClick={() => sendSuggestion(q.prompt)}
+                    className="group text-left rounded-2xl border border-border/70 bg-background/40 hover:bg-mint/5 hover:border-mint/30 p-3 transition"
+                  >
+                    <div className={`w-8 h-8 rounded-lg bg-background/70 border border-border/60 flex items-center justify-center ${q.tint}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="mt-2 text-[13px] font-semibold text-foreground leading-tight">{q.title}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{q.sub}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="emerald-panel p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Recent Files</h3>
+              <button className="text-[11px] text-mint hover:underline">View all</button>
+            </div>
+            <div className="mt-3 space-y-1">
+              {RECENT_FILES.map((f) => {
+                const Icon = f.icon;
+                return (
+                  <div key={f.name} className="flex items-center gap-3 p-2 rounded-xl hover:bg-mint/5 transition cursor-pointer">
+                    <div className="w-9 h-9 rounded-lg bg-background/60 border border-border/60 flex items-center justify-center shrink-0">
+                      <Icon className={`w-4 h-4 ${f.color}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] truncate">{f.name}</div>
+                      <div className="text-[10px] text-muted-foreground">{f.meta}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+      </div>
 
       {sidebarOpen && (
         <div
@@ -454,18 +589,20 @@ function ChatPage() {
     </div>
   );
 }
-
 function ModelPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-1.5 rounded-lg bg-muted border border-border text-xs outline-none hover:bg-accent cursor-pointer text-foreground max-w-[180px] sm:max-w-none truncate"
-    >
-      {MODELS.map((m) => (
-        <option key={m.id} value={m.id} className="bg-background text-foreground">{m.label}</option>
-      ))}
-    </select>
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none pl-4 pr-10 py-2.5 rounded-2xl bg-card/70 border border-mint/20 text-sm outline-none hover:border-mint/40 cursor-pointer text-foreground min-w-[220px] font-medium"
+      >
+        {MODELS.map((m) => (
+          <option key={m.id} value={m.id} className="bg-background text-foreground">{m.label}</option>
+        ))}
+      </select>
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▾</span>
+    </div>
   );
 }
 
@@ -793,73 +930,57 @@ function SingleChat({
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           {messages.length === 0 && (
-            <div className="pt-10 sm:pt-16 pb-8 animate-in fade-in duration-700">
-              <div className="flex items-center gap-3">
-                <span className="h-px w-10 bg-gradient-to-r from-transparent via-mint to-transparent" />
-                <div className="inline-flex items-center gap-2 text-[10px] tracking-[0.3em] uppercase font-semibold text-mint/90">
-                  <span className="w-1.5 h-1.5 rounded-full bg-mint shadow-[0_0_10px_currentColor] animate-pulse" />
-                  System Online · Neural Core v5.5
-                </div>
+            <div className="pt-6 sm:pt-10 pb-4 animate-in fade-in duration-700">
+              <div className="text-[10px] sm:text-[11px] tracking-[0.3em] uppercase font-semibold text-muted-foreground">
+                Good evening, <span className="text-mint">@{username}</span>
               </div>
-              <h1 className="mt-6 font-serif text-6xl sm:text-7xl md:text-8xl font-normal tracking-tight leading-[0.9] text-foreground">
-                Good to see you,
-                <br />
-                <span className="italic aurora-text">@{username}</span>
+              <h1 className="mt-3 font-display text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-[1.05] text-foreground">
+                How can I help you today?
               </h1>
-              <p className="mt-5 text-lg sm:text-xl text-muted-foreground max-w-xl font-light leading-relaxed">
-                Your intelligent workspace is primed. Ask anything, generate images or PDFs, compare models, or dive into deep research.
+              <p className="mt-4 text-sm sm:text-base text-muted-foreground max-w-xl leading-relaxed">
+                Ask anything, get intelligent answers, create content, analyze data, generate images, and much more.
               </p>
-              <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
-                {SUGGESTIONS.map((s, i) => {
+
+              <div className="mt-8 flex flex-wrap gap-2">
+                {SUGGESTIONS.map((s) => {
                   const Icon = s.icon;
-                  const spans = [
-                    "col-span-2 lg:col-span-2 lg:row-span-2",
-                    "col-span-2 lg:col-span-2",
-                    "col-span-1 lg:col-span-1",
-                    "col-span-1 lg:col-span-1",
-                  ];
-                  const tints = [
-                    { glow: "bg-mint/20", ring: "hover:border-mint/40", icoBg: "bg-mint/15 border-mint/30", ico: "text-mint" },
-                    { glow: "bg-iris/20", ring: "hover:border-iris/40", icoBg: "bg-iris/15 border-iris/30", ico: "text-iris" },
-                    { glow: "bg-violet/20", ring: "hover:border-violet/40", icoBg: "bg-violet/15 border-violet/30", ico: "text-violet" },
-                    { glow: "bg-mint/20", ring: "hover:border-mint/40", icoBg: "bg-mint/15 border-mint/30", ico: "text-mint" },
-                  ];
-                  const t = tints[i] ?? tints[0];
-                  const isHero = i === 0;
                   return (
                     <button
                       key={s.title}
                       type="button"
                       onClick={() => onSuggestion(s.prompt)}
-                      className={`group relative overflow-hidden text-left bento-card p-6 transition-all duration-500 hover:-translate-y-1 ${t.ring} ${spans[i] ?? ""}`}
+                      className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-border/70 bg-card/40 hover:bg-mint/10 hover:border-mint/40 text-sm text-foreground transition"
                     >
-                      <div className={`absolute -top-12 -right-12 w-40 h-40 rounded-full ${t.glow} blur-[60px] opacity-40 group-hover:opacity-100 transition-opacity duration-700`} />
-                      <div className="relative flex flex-col h-full min-h-[7rem] justify-between gap-6">
-                        <div className="flex items-start justify-between">
-                          <div className={`w-11 h-11 rounded-2xl border ${t.icoBg} flex items-center justify-center ${t.ico} group-hover:scale-110 transition-transform duration-500`}>
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div className="w-7 h-7 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-300">
-                            <ArrowUp className="w-3.5 h-3.5 rotate-45" />
-                          </div>
-                        </div>
-                        <div>
-                          {isHero && (
-                            <div className="mb-2 text-[10px] tracking-[0.25em] uppercase font-semibold text-mint/80">Featured</div>
-                          )}
-                          <div className={`font-display font-medium text-foreground leading-snug ${isHero ? "text-xl sm:text-2xl" : "text-base"}`}>
-                            {s.title}
-                          </div>
-                          {isHero && (
-                            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                              Curated prompt — one click to start. Optimised for {s.title.toLowerCase()}.
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      <Icon className="w-3.5 h-3.5 text-mint" />
+                      {s.title}
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="mt-10 rounded-2xl border border-mint/20 bg-background/40 p-4">
+                <div className="text-[10px] tracking-[0.25em] uppercase text-muted-foreground mb-3">
+                  Your AI Assistant Stats
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Chats", value: "247", icon: Sparkles },
+                    { label: "Time Saved", value: "128h", icon: Zap },
+                    { label: "Accuracy", value: "98%", icon: Lightbulb },
+                    { label: "Projects", value: "12", icon: FileTextIcon },
+                  ].map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <div key={s.label} className="rounded-xl bg-card/40 border border-border/60 p-3">
+                        <div className="flex items-center gap-2 text-mint">
+                          <Icon className="w-4 h-4" />
+                          <div className="text-xl font-bold text-foreground">{s.value}</div>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1">{s.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
